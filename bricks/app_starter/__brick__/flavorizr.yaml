@@ -1,0 +1,15 @@
+flavors:
+  production:
+    app:
+      name: "{{{app_name}}}"
+    android:
+      applicationId: "{{org}}.{{project_name}}"
+    ios:
+      bundleId: "{{org}}.{{project_name}}"
+  staging:
+    app:
+      name: "{{{app_name}}} Staging"
+    android:
+      applicationId: "{{org}}.{{project_name}}.staging"
+    ios:
+      bundleId: "{{org}}.{{project_name}}.staging"

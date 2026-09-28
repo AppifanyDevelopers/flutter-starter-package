@@ -1,0 +1,90 @@
+name: {{project_name}}
+description: "{{{description}}}"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management / DI / routing
+  get: ^4.7.3
+
+  # Networking (wired but idle until a feature swaps its fake repository
+  # for a real one -- see lib/core/network/dio_api_client.dart)
+  dio: ^5.9.0
+  pretty_dio_logger: ^1.4.0
+
+  # Functional error handling for repositories (Either<AppError, T>)
+  dartz: ^0.10.1
+
+  # Env config
+  flutter_dotenv: ^5.2.1
+
+  # Session storage
+  flutter_secure_storage: ^9.2.4
+  get_storage: ^2.1.1
+
+  # Forms
+  form_validator: ^2.1.1
+
+  # Loading states
+  shimmer: ^3.0.0
+
+  # FAQ / Terms & Conditions / Privacy Policy rendering
+  flutter_widget_from_html: ^0.17.0
+
+  # In-app update prompt
+  update_available: ^3.2.1
+  url_launcher: ^6.3.0
+
+  # Firebase (inert until google-services.json/GoogleService-Info.plist are
+  # added -- see docs/POST_GEN_MANUAL_STEPS.md). All initialized once via
+  # lib/core/firebase/firebase_bootstrap.dart, not independently.
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+  flutter_local_notifications: ^22.3.1
+  firebase_crashlytics: ^5.4.0
+  firebase_analytics: ^12.6.0
+
+  cupertino_icons: ^1.0.8
+  package_info_plus: ^9.0.1
+
+  # Profile/signup photo picker (gallery only -- see docs/POST_GEN_MANUAL_STEPS.md
+  # for the iOS permission string this needs, already wired into post_gen.dart)
+  image_picker: ^1.2.3
+
+  # Crops the picked photo before use; needs a manifest activity on Android,
+  # already wired into post_gen.dart -- see docs/ARCHITECTURE.md.
+  image_cropper: ^12.2.1
+
+  # Powers the offline banner (lib/core/connectivity/connectivity_service.dart)
+  connectivity_plus: ^7.3.1
+
+  # Google/Apple sign-in (no firebase_auth -- see docs/ARCHITECTURE.md for why).
+  # Apple is iOS-only; Android/Web need a hosted redirect this template
+  # doesn't have. Native setup (Info.plist, entitlement) is in POST_GEN_MANUAL_STEPS.md.
+  google_sign_in: ^7.2.0
+  sign_in_with_apple: ^7.0.1
+  crypto: ^3.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_flavorizr: ^2.4.1
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env.staging
+    - .env.production
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo/icon.png"

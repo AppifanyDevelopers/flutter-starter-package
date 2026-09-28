@@ -1,0 +1,84 @@
+name: Verify app_starter brick
+
+on:
+  pull_request:
+    paths:
+      - "bricks/app_starter/**"
+      - ".github/workflows/verify-brick.yml"
+  push:
+    branches: [main]
+    paths:
+      - "bricks/app_starter/**"
+
+jobs:
+  generate-and-verify:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install Mason CLI
+        run: dart pub global activate mason_cli
+
+      - name: Generate a test app from the brick
+        run: |
+          export PATH="$PATH":"$HOME/.pub-cache/bin"
+          mkdir -p /tmp/verify-app
+          mason get
+          cat > /tmp/verify-vars.json <<'EOF'
+          {
+            "project_name": "verify_app",
+            "app_name": "Verify App",
+            "org": "com.example.verify",
+            "seed_color": "#1E88E5",
+            "description": "CI verification app",
+            "api_base_url_staging": "https://staging-api.example.com/api/v1",
+            "api_base_url_production": "https://api.example.com/api/v1"
+          }
+          EOF
+          mason make app_starter -o /tmp/verify-app -c /tmp/verify-vars.json --on-conflict overwrite
+
+      # Firebase's iOS podspec sometimes isn't in the runner's cached CocoaPods
+      # trunk snapshot yet -- refresh it before the iOS builds below.
+      - name: Update CocoaPods spec repo
+        run: pod repo update
+
+      - name: flutter analyze
+        working-directory: /tmp/verify-app
+        run: flutter analyze
+
+      - name: flutter test
+        working-directory: /tmp/verify-app
+        run: flutter test
+
+      - name: Build Android (staging)
+        working-directory: /tmp/verify-app
+        run: flutter build apk --debug --flavor staging -t lib/main.dart
+
+      - name: Build Android (production)
+        working-directory: /tmp/verify-app
+        run: flutter build apk --debug --flavor production -t lib/main.dart
+
+      - name: Build iOS (staging, no codesign)
+        working-directory: /tmp/verify-app
+        run: flutter build ios --no-codesign --debug --flavor staging -t lib/main.dart
+
+      - name: Build iOS (production, no codesign)
+        working-directory: /tmp/verify-app
+        run: flutter build ios --no-codesign --debug --flavor production -t lib/main.dart
+
+      # Proves the scaffolded Fastlane lanes actually run, not just that the
+      # Ruby parses -- macos-latest ships Ruby but not the fastlane gem.
+      - name: Install Fastlane
+        run: gem install fastlane
+
+      - name: Run Fastlane build_staging (Android)
+        working-directory: /tmp/verify-app/android
+        run: fastlane build_staging
+
+      - name: Run Fastlane build_staging (iOS)
+        working-directory: /tmp/verify-app/ios
+        run: fastlane build_staging

@@ -1,0 +1,12 @@
+.dart_tool/
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.DS_Store
+
+# Mason (local-path lockfile is machine-specific)
+.mason/
+mason-lock.json

@@ -1,0 +1,43 @@
+name: app_starter
+description: >-
+  A fully functional GetX starter app (fake auth, dashboard, settings) with
+  staging/production flavors, .env config, and an in-app update prompt --
+  rebrand for a new client in minutes.
+version: 0.6.0
+environment:
+  mason: ">=0.1.0 <1.0.0"
+
+vars:
+  project_name:
+    type: string
+    description: Dart package name. lower_snake_case, starts with a letter, [a-z0-9_] only.
+    default: my_starter_app
+    prompt: "Package/project name (lower_snake_case, e.g. acme_rentals)"
+  app_name:
+    type: string
+    description: Human-readable name shown on the home screen and in flavor labels.
+    default: My Starter App
+    prompt: "App display name (e.g. Acme Rentals)"
+  org:
+    type: string
+    description: Reverse-DNS org id for Android applicationId / iOS bundleId (e.g. com.acme).
+    default: com.example
+    prompt: "Organization id, reverse-DNS (e.g. com.acme)"
+  seed_color:
+    type: string
+    description: 6-digit hex, with or without leading '#'. Drives ColorScheme.fromSeed.
+    default: "#6750A4"
+    prompt: "Brand seed color (hex, e.g. #6750A4)"
+  description:
+    type: string
+    description: pubspec.yaml one-liner.
+    default: A Flutter app generated from app_starter.
+    prompt: "Short project description"
+  api_base_url_staging:
+    type: string
+    default: https://staging-api.example.com/api/v1
+    prompt: "Staging API base URL (used once you swap in a real backend)"
+  api_base_url_production:
+    type: string
+    default: https://api.example.com/api/v1
+    prompt: "Production API base URL (used once you swap in a real backend)"

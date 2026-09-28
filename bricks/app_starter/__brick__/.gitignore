@@ -1,0 +1,16 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+*.iml
+.idea/
+
+# macOS
+.DS_Store
+
+# Generated natively by `flutter create` in post_gen -- keep out of the
+# brick's own git history, but real per-project checkouts should commit them.
