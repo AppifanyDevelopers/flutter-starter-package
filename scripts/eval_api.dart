@@ -7,6 +7,7 @@
 //   dart scripts/eval_api.dart --spec get_notifications --app /tmp/verify-app --generate
 //
 // --app         a generated app to score (created with --generate if missing)
+// --generate-only  just generate the app, no scoring (--spec not needed)
 // --generate    run `mason make app_starter` into --app first (needs mason)
 // --candidate   copy a saved run (feature/ + *_test.dart) into --app first
 //
@@ -30,14 +31,16 @@ Future<void> main(List<String> args) async {
   final opts = _parse(args);
   final spec = opts['spec'];
   final appPath = opts['app'];
-  if (spec == null || appPath == null) {
+  if (appPath == null || (spec == null && !opts.containsKey('generate-only'))) {
     stderr.writeln('Usage: dart scripts/eval_api.dart --spec <name> --app <dir> '
         '[--generate] [--candidate <run dir>]');
     exit(64);
   }
   final app = Directory(appPath);
 
-  if (opts.containsKey('generate')) await _generate(app);
+  if (opts.containsKey('generate') || opts.containsKey('generate-only')) await _generate(app);
+  if (opts.containsKey('generate-only')) exit(0);
+  if (spec == null) exit(64);
   if (!app.existsSync()) {
     stderr.writeln('App not found: $appPath (pass --generate to create it).');
     exit(64);
@@ -160,6 +163,7 @@ String _featureName(Directory run) {
 Row _refreshHandlerCheck(Map<String, dynamic> c, Directory app) {
   final id = '${c['id']}';
   final dir = Directory('${app.path}/${c['dir']}');
+  if (!dir.existsSync()) return Row(id, false, 'dir ${c['dir']} not found');
   String read(String part) => dir
       .listSync(recursive: true)
       .whereType<File>()

@@ -35,6 +35,31 @@ Runs the validator, `flutter analyze`, `flutter test`, then the regex checks in
 for `--generate`. Regex checks are heuristics: they catch known failure modes
 (e.g. refresh flipping to the shimmer), not correctness in general.
 
+## Automate it (`scripts/implement_api.dart`)
+
+```bash
+dart scripts/implement_api.dart --spec get_notifications \
+  --also mark_notification_read --app /path/to/app --branch --push
+```
+
+Chain: validate every spec (gate A) -> headless `claude -p` implements ->
+`eval_api.dart` scores (gate B) -> if it fails, one `--continue` fix pass with
+the failing checks (bounded by `--attempts`, default 2) -> report -> optional
+push of branch `api/<spec>` and a compare URL. Only the implement/fix steps use
+a model; everything else is deterministic.
+
+Human gates and limits:
+- Exit 2 if any spec has unanswered `open_questions`; exit 3 if invalid or if
+  the primary spec has no `.checks.json` (it refuses what it cannot score).
+- Refuses an app with uncommitted changes, so the branch contains only the
+  automated change. The report is git-excluded, never committed.
+- Never merges, never touches `main`, never opens a PR itself (no `gh`
+  needed): it prints the compare URL for a draft PR.
+- Cost cap per call via `--budget` (default \$5). First real run: one attempt,
+  about \$2.50. `--dry-run` calls nothing paid.
+- `.github/workflows/verify-specs.yml` runs the free validation on every PR that
+  touches specs or scripts.
+
 ## Routing rules (first match wins)
 
 | # | Condition | Template |

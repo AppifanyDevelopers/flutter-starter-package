@@ -1,0 +1,39 @@
+name: Verify API specs
+
+# Deterministic and free: no model is called. Fails a PR if any real spec is
+# invalid (exit 1) or still has unanswered open questions (exit 2), so a spec
+# is never "ready" while a human decision is pending.
+
+on:
+  pull_request:
+    paths:
+      - "docs/ai/api-workflow/specs/**"
+      - "scripts/api_spec.dart"
+      - "scripts/eval_api.dart"
+      - "scripts/implement_api.dart"
+      - ".github/workflows/verify-specs.yml"
+
+jobs:
+  specs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Analyze workflow scripts
+        run: dart analyze scripts/
+
+      - name: Validate and route every spec
+        run: |
+          status=0
+          for f in docs/ai/api-workflow/specs/*.json; do
+            case "$(basename "$f")" in _*|*.checks.json) continue ;; esac
+            dart scripts/api_spec.dart "$f" || status=1
+          done
+          exit $status
+
+      - name: Checks files are valid JSON with a checks list
+        run: |
+          for f in docs/ai/api-workflow/specs/*.checks.json; do
+            python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert isinstance(d['checks'], list), 'no checks list'" "$f"
+          done
