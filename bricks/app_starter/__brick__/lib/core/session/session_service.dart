@@ -25,6 +25,9 @@ class SessionService {
     _isLoggedInSync = token != null && token.isNotEmpty;
   }
 
+  /// Async read of the stored access token, for the `Authorization` header.
+  Future<String?> readToken() => _secureStorage.read(key: _tokenKey);
+
   Future<void> saveSession(String token) async {
     await _secureStorage.write(key: _tokenKey, value: token);
     _isLoggedInSync = true;

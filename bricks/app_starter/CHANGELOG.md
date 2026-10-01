@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- `DioApiClient` now speaks the reference backend envelope: sends
+  `Authorization: Bearer` from `SessionService.readToken`, parses error bodies
+  into `ApiErrorResponse` (`code`, `fieldErrors`, `retryAfterSeconds`), and on
+  `401 unauthenticated` clears the session and returns to login.
+- Add `ApiEnvelope` / `PaginationMeta` (`core/network/api_envelope.dart`) for
+  success bodies, plus tests for error and envelope parsing.
+- `AppEndpoints` aligned with the reference backend's paths (adds refresh,
+  logout, notifications, content and device-token endpoints).
+
 ## 0.6.0
 
 - Add Google and Apple Sign-In ("Continue with...") on Login and Signup,
