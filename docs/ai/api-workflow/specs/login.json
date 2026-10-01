@@ -1,0 +1,184 @@
+{
+  "name": "login",
+  "sample_source": "real",
+  "source": "unoStarterKit API Response Reference, 2026-09-30",
+  "method": "POST",
+  "endpoint": "/auth/login",
+  "auth_required": false,
+  "params": [
+    {
+      "name": "email",
+      "in": "body",
+      "required": true,
+      "rules": "email, lowercase"
+    },
+    {
+      "name": "password",
+      "in": "body",
+      "required": true
+    },
+    {
+      "name": "device_id",
+      "in": "body",
+      "required": false,
+      "rules": "send with device_token to register push"
+    },
+    {
+      "name": "device_token",
+      "in": "body",
+      "required": false
+    },
+    {
+      "name": "token_type",
+      "in": "body",
+      "required": false,
+      "values": [
+        "fcm",
+        "apns"
+      ]
+    },
+    {
+      "name": "platform",
+      "in": "body",
+      "required": false,
+      "values": [
+        "android",
+        "ios",
+        "web"
+      ]
+    }
+  ],
+  "success_response": {
+    "status": 200,
+    "message": null,
+    "data": {
+      "access_token": "<jwt>",
+      "token_type": "bearer",
+      "expires_in": 3600,
+      "user": {
+        "id": 36,
+        "name": "Sample User",
+        "email": "sample.user@example.com",
+        "phone": null,
+        "avatar": null,
+        "location": null,
+        "subscription_type": null,
+        "is_blocked": false,
+        "is_approved": true,
+        "approved_at": "2026-09-30T09:56:44+00:00",
+        "blocked_at": null,
+        "created_at": "2026-09-30T09:56:44+00:00",
+        "updated_at": "2026-09-30T09:56:44+00:00"
+      }
+    }
+  },
+  "nullable_fields": [
+    "message",
+    "user.phone",
+    "user.avatar",
+    "user.location",
+    "user.subscription_type",
+    "user.blocked_at"
+  ],
+  "response_headers": [
+    "X-RateLimit-Limit",
+    "X-RateLimit-Remaining"
+  ],
+  "error_responses": [
+    {
+      "status": 401,
+      "scenario": "wrong credentials",
+      "body": {
+        "status": 401,
+        "code": "invalid_credentials",
+        "message": "Invalid email or password.",
+        "errors": null
+      }
+    },
+    {
+      "status": 403,
+      "scenario": "blocked account",
+      "body": {
+        "status": 403,
+        "code": "account_blocked",
+        "message": "Your account has been blocked.",
+        "errors": null
+      }
+    },
+    {
+      "status": 422,
+      "scenario": "missing fields",
+      "body": {
+        "status": 422,
+        "code": "validation_failed",
+        "message": "The email field is required. (and 1 more error)",
+        "errors": {
+          "email": [
+            "The email field is required."
+          ],
+          "password": [
+            "The password field is required."
+          ]
+        }
+      }
+    },
+    {
+      "status": 429,
+      "scenario": "rate limited (3 per 60 min per IP)",
+      "headers": {
+        "Retry-After": "3600"
+      },
+      "body": {
+        "status": 429,
+        "code": "too_many_requests",
+        "message": "Too many attempts. Please try again later.",
+        "errors": null
+      }
+    },
+    {
+      "status": 500,
+      "scenario": "server error",
+      "body": {
+        "status": 500,
+        "code": "server_error",
+        "message": "Something went wrong. Please try again later.",
+        "errors": null
+      }
+    }
+  ],
+  "ui": {
+    "states": [
+      "loading",
+      "success",
+      "error"
+    ],
+    "shimmer": false,
+    "refresh": false,
+    "error_display": "snackbar"
+  },
+  "task_after_success": "Save data.access_token via SessionService.saveSession, remember email if rememberMe, log analytics login, then Get.offAllNamed(AppRoutes.dashboard). Show validation errors under fields via ApiErrorResponse.firstError; for every other error (invalid_credentials, 403 codes, too_many_requests) show the message in a snackbar, nothing more. Send the email lowercased. Login itself sends no device_id/device_token/platform. After saving the session, hand off to the push prompt described in register_device_token (the dialog is not part of this spec).",
+  "out_of_scope": "Do not store the password. Social login, register and refresh are separate specs. Do not implement token refresh or use expires_in. No 429 countdown. Device/push registration is the register_device_token spec.",
+  "open_questions": [
+    {
+      "question": "Can login return 403 (account_blocked / account_pending_approval)? What should the screen do?",
+      "answer": "Show the response message only (snackbar). No dedicated state."
+    },
+    {
+      "question": "Should this feature schedule /auth/refresh using expires_in?",
+      "answer": "No. Ignore expires_in and do not implement refresh; the session ends at 401."
+    },
+    {
+      "question": "On 429, disable the button for Retry-After seconds?",
+      "answer": "Not needed. Show the message like any other error; no countdown or disabling."
+    },
+    {
+      "question": "The backend rule says email must be lowercase. Should the app lowercase the email before sending?",
+      "answer": "Yes. Send email.trim().toLowerCase(); keep showing what the user typed in the field."
+    },
+    {
+      "question": "Does the login request carry device fields, and when is the device token sent?",
+      "answer": "Login sends NO device fields. After a successful login the app shows a dialog asking to turn on push notifications; only if accepted is device_token sent, via the separate register_device_token spec."
+    }
+  ],
+  "integration": "Add DioAuthRepository implements AuthRepository: login() calls AppEndpoints.login via DioApiClient and maps data.access_token + data.user to the existing User model (id as String). Every other AuthRepository method delegates to FakeAuthRepository (keep TODO(swap-backend)). Change AuthBindings to register DioAuthRepository. LoginController keeps saveSession/remember-me/analytics/navigation; add emailError/passwordError RxnString filled from ApiErrorResponse.firstError('email'/'password') on 422 and cleared on the next attempt, shown as errorText on the fields. The existing fake login keeps working for other flows. Adding an optional errorText parameter to the shared AppTextFormField is allowed; touch no other shared widget."
+}

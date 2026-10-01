@@ -1,0 +1,157 @@
+{
+  "checks": [
+    {
+      "id": "parses_access_token",
+      "description": "reads data.access_token from the response",
+      "dir": "lib/features/auth/data",
+      "must_match": [
+        "access_token"
+      ]
+    },
+    {
+      "id": "endpoint_constant",
+      "description": "uses AppEndpoints.login, no magic path string",
+      "dir": "lib/features/auth/data",
+      "includes": [
+        "dio_auth"
+      ],
+      "must_match": [
+        "AppEndpoints\\.login"
+      ],
+      "must_not_match": [
+        "'/auth/login'"
+      ]
+    },
+    {
+      "id": "dio_repository_exists",
+      "description": "DioAuthRepository implements AuthRepository",
+      "dir": "lib/features/auth/data",
+      "must_match": [
+        "class DioAuthRepository implements AuthRepository"
+      ]
+    },
+    {
+      "id": "bindings_use_dio",
+      "description": "AuthBindings registers DioAuthRepository",
+      "dir": "lib/features/auth/presentation/bindings",
+      "must_match": [
+        "lazyPut<AuthRepository>\\(\\s*(\\(\\)\\s*=>\\s*)?DioAuthRepository"
+      ]
+    },
+    {
+      "id": "field_errors_shown",
+      "description": "422 field errors shown via ApiErrorResponse.firstError",
+      "dir": "lib/features/auth/presentation",
+      "must_match": [
+        "firstError\\(",
+        "errorText"
+      ]
+    },
+    {
+      "id": "branch_on_code_not_message",
+      "description": "never branches on message text",
+      "dir": "lib/features/auth",
+      "must_not_match": [
+        "message\\s*==",
+        "message\\.contains\\(",
+        "message\\.startsWith\\("
+      ]
+    },
+    {
+      "id": "no_refresh_or_expiry",
+      "description": "no token refresh or expires_in handling (out of scope)",
+      "dir": "lib/features/auth",
+      "must_not_match": [
+        "expires_in",
+        "expiresIn",
+        "auth/refresh",
+        "refreshToken"
+      ]
+    },
+    {
+      "id": "no_429_countdown",
+      "description": "no 429 countdown or retry-after logic in the UI layer",
+      "dir": "lib/features/auth/presentation",
+      "must_not_match": [
+        "retryAfterSeconds",
+        "Timer\\(",
+        "Timer\\.periodic"
+      ]
+    },
+    {
+      "id": "password_never_persisted",
+      "description": "password is never stored or logged",
+      "dir": "lib/features/auth",
+      "must_not_match": [
+        "(saveSession|setRememberedEmail|write)\\([^)]*[pP]assword",
+        "(print|debugPrint)\\([^)]*([pP]assword|[tT]oken)"
+      ]
+    },
+    {
+      "id": "session_and_navigation",
+      "description": "saves the session and navigates to dashboard on success",
+      "dir": "lib/features/auth/presentation/controllers",
+      "includes": [
+        "login"
+      ],
+      "must_match": [
+        "saveSession",
+        "offAllNamed\\(AppRoutes\\.dashboard\\)"
+      ]
+    },
+    {
+      "id": "other_errors_snackbar",
+      "description": "other errors shown in a snackbar",
+      "dir": "lib/features/auth/presentation/controllers",
+      "includes": [
+        "login"
+      ],
+      "must_match": [
+        "snackbar"
+      ]
+    },
+    {
+      "id": "no_set_state",
+      "description": "no setState for server state",
+      "dir": "lib/features/auth/presentation",
+      "must_not_match": [
+        "setState\\("
+      ]
+    },
+    {
+      "id": "has_login_tests",
+      "description": "a test covers the Dio login repository or controller",
+      "dir": "test",
+      "includes": [
+        "login",
+        "auth"
+      ],
+      "must_match": [
+        "test\\(|testWidgets\\("
+      ]
+    },
+    {
+      "id": "email_lowercased",
+      "description": "email is lowercased before sending (in the Dio repository or login controller, not the fake repo)",
+      "dir": "lib/features/auth",
+      "must_match": [
+        "toLowerCase\\(\\)"
+      ],
+      "includes": [
+        "dio_auth",
+        "login_controller"
+      ]
+    },
+    {
+      "id": "no_device_fields_in_login",
+      "description": "login sends no device fields",
+      "dir": "lib/features/auth",
+      "must_not_match": [
+        "device_id",
+        "device_token",
+        "deviceToken",
+        "'platform'"
+      ]
+    }
+  ]
+}

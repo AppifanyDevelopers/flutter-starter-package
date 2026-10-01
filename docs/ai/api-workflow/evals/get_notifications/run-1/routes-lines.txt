@@ -1,0 +1,5 @@
+13:import '../../features/notifications/presentation/bindings/notifications_bindings.dart';
+14:import '../../features/notifications/presentation/screens/notifications_screen.dart';
+42:  static const notifications = '/notifications';
+47:  static const notificationSettings = '/settings/notifications';
+106:      name: notifications,

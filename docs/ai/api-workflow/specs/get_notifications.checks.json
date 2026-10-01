@@ -1,0 +1,126 @@
+{
+  "checks": [
+    {
+      "id": "paging_from_meta",
+      "description": "paging derives hasMore from PaginationMeta, not page size",
+      "dir": "lib/features/notifications",
+      "must_match": [
+        "hasMore"
+      ],
+      "must_not_match": [
+        "length\\s*==\\s*_?pageSize"
+      ]
+    },
+    {
+      "id": "load_more_retry_row",
+      "description": "load-more failure keeps the list and shows an inline retry row",
+      "dir": "lib/features/notifications",
+      "must_match": [
+        "loadMoreFailed",
+        "[Rr]etry"
+      ]
+    },
+    {
+      "id": "pull_to_refresh",
+      "description": "pull-to-refresh via RefreshIndicator",
+      "dir": "lib/features/notifications",
+      "includes": [
+        "screen"
+      ],
+      "must_match": [
+        "RefreshIndicator"
+      ]
+    },
+    {
+      "id": "refresh_keeps_list",
+      "kind": "refresh_handler",
+      "description": "the onRefresh handler does not flip state to loading (list stays visible)",
+      "dir": "lib/features/notifications"
+    },
+    {
+      "id": "always_scrollable",
+      "description": "lists can be pulled to refresh even when short",
+      "dir": "lib/features/notifications",
+      "includes": [
+        "screen"
+      ],
+      "must_match": [
+        "AlwaysScrollableScrollPhysics"
+      ]
+    },
+    {
+      "id": "shimmer",
+      "description": "shimmer loading state",
+      "dir": "lib/features/notifications",
+      "includes": [
+        "screen"
+      ],
+      "must_match": [
+        "AppShimmer"
+      ]
+    },
+    {
+      "id": "empty_state",
+      "description": "empty state rendered",
+      "dir": "lib/features/notifications",
+      "includes": [
+        "screen"
+      ],
+      "must_match": [
+        "isEmpty"
+      ]
+    },
+    {
+      "id": "no_set_state",
+      "description": "no setState / StatefulWidget for server state",
+      "dir": "lib/features/notifications",
+      "must_not_match": [
+        "setState\\(",
+        "extends StatefulWidget"
+      ]
+    },
+    {
+      "id": "no_navigation_on_url",
+      "description": "does not navigate when url is set (out of scope)",
+      "dir": "lib/features/notifications",
+      "must_not_match": [
+        "Get\\.(to|toNamed|offNamed)\\(",
+        "launchUrl"
+      ]
+    },
+    {
+      "id": "tap_marks_read_regardless_of_url",
+      "description": "tapping an unread tile marks it read regardless of url (no url condition)",
+      "dir": "lib/features/notifications",
+      "includes": [
+        "controller"
+      ],
+      "must_match": [
+        "[mM]ark\\w*[Rr]ead"
+      ],
+      "must_not_match": [
+        "url\\s*!=\\s*null",
+        "url\\s*==\\s*null"
+      ]
+    },
+    {
+      "id": "no_commented_out_code",
+      "description": "no commented-out code left behind",
+      "dir": "lib/features/notifications",
+      "must_not_match": [
+        "^\\s*//\\s*(final|await|return|Get\\.|notifications)"
+      ]
+    },
+    {
+      "id": "has_controller_tests",
+      "description": "controller tests exist",
+      "dir": "test",
+      "includes": [
+        "notifications"
+      ],
+      "must_match": [
+        "test\\(|testWidgets\\("
+      ]
+    }
+  ]
+}

@@ -1,0 +1,128 @@
+{
+  "name": "register_device_token",
+  "sample_source": "real",
+  "source": "unoStarterKit API Response Reference, 2026-09-30",
+  "method": "POST",
+  "endpoint": "/device-tokens",
+  "auth_required": true,
+  "params": [
+    {
+      "name": "device_token",
+      "in": "body",
+      "required": true
+    },
+    {
+      "name": "token_type",
+      "in": "body",
+      "required": false,
+      "values": [
+        "fcm",
+        "apns"
+      ]
+    },
+    {
+      "name": "platform",
+      "in": "body",
+      "required": false,
+      "values": [
+        "android",
+        "ios",
+        "web"
+      ]
+    },
+    {
+      "name": "device_name",
+      "in": "body",
+      "required": false
+    },
+    {
+      "name": "app_version",
+      "in": "body",
+      "required": false
+    }
+  ],
+  "success_response": {
+    "status": 200,
+    "message": "Device registered for push notifications.",
+    "data": null
+  },
+  "nullable_fields": [
+    "message",
+    "data"
+  ],
+  "error_responses": [
+    {
+      "status": 401,
+      "scenario": "missing or expired token",
+      "body": {
+        "status": 401,
+        "code": "unauthenticated",
+        "message": "Unauthenticated.",
+        "errors": null
+      }
+    },
+    {
+      "status": 422,
+      "scenario": "missing/invalid fields",
+      "body": {
+        "status": 422,
+        "code": "validation_failed",
+        "message": "The device id field is required. (and 2 more errors)",
+        "errors": {
+          "device_id": [
+            "The device id field is required."
+          ],
+          "device_token": [
+            "The device token field is required."
+          ],
+          "platform": [
+            "The selected platform is invalid."
+          ]
+        }
+      }
+    },
+    {
+      "status": 500,
+      "scenario": "server error",
+      "body": {
+        "status": 500,
+        "code": "server_error",
+        "message": "Something went wrong. Please try again later.",
+        "errors": null
+      }
+    }
+  ],
+  "ui": {
+    "states": [
+      "loading",
+      "success",
+      "error"
+    ],
+    "error_display": "snackbar"
+  },
+  "mutation": {
+    "confirm_before": true,
+    "on_success": "dismiss_dialog",
+    "idempotent": true,
+    "side_effects": [
+      "request OS notification permission only after the user accepts the dialog"
+    ]
+  },
+  "open_questions": [
+    {
+      "question": "Should the app send device_id?",
+      "answer": "No. Removed for now (owner decision). Send only device_token (+ platform, token_type)."
+    },
+    {
+      "question": "When is the prompt shown, and what if the user declines?",
+      "answer": "After a successful login, once per install: show the dialog on the first dashboard visit after login. If declined, do not ask again and send nothing. (Default; confirm.)"
+    },
+    {
+      "question": "PushNotificationService.init() already calls requestPermission() at app start. Keep that?",
+      "answer": "No. Move the OS permission request into the accepted dialog so the user is not prompted twice. (Default; confirm.)"
+    }
+  ],
+  "task_after_success": "After login, show a dialog 'Turn on push notifications?'. Accept: request OS permission, read the FCM token from FirebaseMessaging (only when FirebaseBootstrap.isAvailable), then POST this endpoint with device_token (+ platform, token_type 'fcm' on Android, 'apns' on iOS) and NO device_id. Decline: do nothing. On failure (including the expected 422 on device_id) show nothing to the user and never block them; log it.",
+  "out_of_scope": "No token refresh listener (onTokenRefresh) in this spec. Not part of login: login sends no device fields. Logout device removal is a separate spec. Do not generate or store a device_id.",
+  "known_issue": "The backend reference lists device_id as REQUIRED (422 validation_failed on device_id when missing). Without it this call is expected to fail until the backend makes it optional or the app sends one. Treat a 422 here as non-fatal."
+}

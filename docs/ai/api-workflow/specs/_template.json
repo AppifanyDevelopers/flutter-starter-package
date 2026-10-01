@@ -1,0 +1,62 @@
+{
+  "name": "",
+  "sample_source": "real",
+  "method": "GET",
+  "endpoint": "",
+  "auth_required": true,
+  "params": [
+    {
+      "name": "",
+      "in": "query",
+      "required": true
+    }
+  ],
+  "success_response": {},
+  "success_variants": {
+    "empty": {},
+    "last_page": {}
+  },
+  "error_responses": [
+    {
+      "status": 401,
+      "body": {}
+    },
+    {
+      "status": 422,
+      "body": {}
+    },
+    {
+      "status": 500,
+      "body": {}
+    }
+  ],
+  "ui": {
+    "states": [
+      "loading",
+      "success",
+      "empty",
+      "error"
+    ],
+    "shimmer": true,
+    "refresh": true,
+    "pagination": {
+      "type": "page",
+      "per_page": 20
+    },
+    "error_display": "snackbar"
+  },
+  "mutation": {
+    "confirm_before": false,
+    "on_success": "refetch_list",
+    "idempotent": false,
+    "side_effects": []
+  },
+  "task_after_success": "",
+  "out_of_scope": "",
+  "open_questions": [
+    {
+      "question": "",
+      "answer": ""
+    }
+  ]
+}

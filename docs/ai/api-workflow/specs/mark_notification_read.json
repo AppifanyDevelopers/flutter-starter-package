@@ -1,0 +1,74 @@
+{
+  "name": "mark_notification_read",
+  "sample_source": "real",
+  "source": "unoStarterKit API Response Reference, 2026-09-30",
+  "method": "PATCH",
+  "endpoint": "/notifications/{id}/read",
+  "auth_required": true,
+  "params": [
+    {
+      "name": "id",
+      "in": "path",
+      "required": true
+    }
+  ],
+  "success_response": {
+    "status": 200,
+    "message": "Notification marked as read",
+    "data": []
+  },
+  "error_responses": [
+    {
+      "status": 401,
+      "scenario": "missing or expired token",
+      "body": {
+        "status": 401,
+        "code": "unauthenticated",
+        "message": "Unauthenticated.",
+        "errors": null
+      }
+    },
+    {
+      "status": 403,
+      "scenario": "notification belongs to another user",
+      "body": {
+        "status": 403,
+        "code": "forbidden",
+        "message": "This action is unauthorized.",
+        "errors": null
+      }
+    },
+    {
+      "status": 404,
+      "scenario": "unknown id",
+      "body": {
+        "status": 404,
+        "code": "not_found",
+        "message": "The requested resource was not found.",
+        "errors": null
+      }
+    }
+  ],
+  "ui": {
+    "states": [
+      "loading",
+      "success",
+      "error"
+    ],
+    "error_display": "snackbar"
+  },
+  "mutation": {
+    "confirm_before": false,
+    "on_success": "update_item_in_place",
+    "idempotent": true,
+    "side_effects": []
+  },
+  "task_after_success": "Triggered by tapping any unread tile (url is irrelevant). Set read_at on the tapped item in the local list (optimistic is fine); on failure revert and show the message in a snackbar. On 404 remove the item from the list.",
+  "out_of_scope": "mark-all-as-read is a separate spec.",
+  "open_questions": [
+    {
+      "question": "What does the failure snackbar say?",
+      "answer": "Get.snackbar('Could not mark as read', error.message). On 404 also remove the item from the list."
+    }
+  ]
+}

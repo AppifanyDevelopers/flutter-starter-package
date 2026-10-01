@@ -1,0 +1,147 @@
+{
+  "name": "get_notifications",
+  "sample_source": "real",
+  "source": "unoStarterKit API Response Reference, 2026-09-30",
+  "method": "GET",
+  "endpoint": "/notifications",
+  "auth_required": true,
+  "params": [
+    {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "rules": "default 1; page size fixed at 20 by the server"
+    }
+  ],
+  "success_response": {
+    "status": 200,
+    "message": "Notifications retrieved successfully",
+    "data": [
+      {
+        "id": 91,
+        "type": "push",
+        "notifiable_type": "App\\Models\\User",
+        "notifiable_id": 36,
+        "data": {
+          "body": "This is sample notification number 22.",
+          "data": [],
+          "title": "Sample notification 22"
+        },
+        "read_at": null,
+        "url": null,
+        "created_at": "2026-09-30T09:56:45.000000Z",
+        "updated_at": "2026-09-30T09:56:45.000000Z"
+      }
+    ],
+    "meta": {
+      "current_page": 1,
+      "last_page": 2,
+      "per_page": 20,
+      "total": 22,
+      "from": 1,
+      "to": 20
+    }
+  },
+  "success_variants": {
+    "last_page": {
+      "status": 200,
+      "message": "Notifications retrieved successfully",
+      "data": [
+        "<2 items>"
+      ],
+      "meta": {
+        "current_page": 2,
+        "last_page": 2,
+        "per_page": 20,
+        "total": 22,
+        "from": 21,
+        "to": 22
+      }
+    },
+    "empty": {
+      "status": 200,
+      "message": "Notifications retrieved successfully",
+      "data": [],
+      "meta": {
+        "current_page": 1,
+        "last_page": 1,
+        "per_page": 20,
+        "total": 0,
+        "from": null,
+        "to": null
+      }
+    }
+  },
+  "nullable_fields": [
+    "read_at",
+    "url",
+    "meta.from",
+    "meta.to"
+  ],
+  "notes": "Model only data.title and data.body from the nested data object; ignore data.data. read_at != null means read.",
+  "error_responses": [
+    {
+      "status": 401,
+      "scenario": "missing or expired token",
+      "body": {
+        "status": 401,
+        "code": "unauthenticated",
+        "message": "Unauthenticated.",
+        "errors": null
+      }
+    },
+    {
+      "status": 500,
+      "scenario": "server error",
+      "body": {
+        "status": 500,
+        "code": "server_error",
+        "message": "Something went wrong. Please try again later.",
+        "errors": null
+      }
+    }
+  ],
+  "ui": {
+    "states": [
+      "loading",
+      "success",
+      "empty",
+      "error"
+    ],
+    "shimmer": true,
+    "refresh": true,
+    "pagination": {
+      "type": "page",
+      "per_page": 20
+    },
+    "error_display": "inline"
+  },
+  "task_after_success": "Map each item to a notification tile showing data.title and data.body, with an unread indicator when read_at is null. Tapping any unread tile marks it read via mark_notification_read, regardless of url; tapping a read tile does nothing. Load-more failure keeps the list and shows an inline retry row. 401 unauthenticated is handled globally by DioApiClient.",
+  "out_of_scope": "No navigation from a tile, ever (url is ignored). mark-all-as-read is a separate spec. Do not name any controller method refresh() (GetxController already has it).",
+  "open_questions": [
+    {
+      "question": "What can data[].data.data contain?",
+      "answer": "Irrelevant. Model only the outer data object (title, body); ignore the nested data.data."
+    },
+    {
+      "question": "What does tapping a notification do?",
+      "answer": "Tapping marks the notification read (mark_notification_read spec), whether or not url is set. No navigation, ever, from the tile."
+    },
+    {
+      "question": "What if loading page 2 fails?",
+      "answer": "Keep the loaded list and show an inline retry row at the bottom."
+    },
+    {
+      "question": "What does tapping an already-read tile do?",
+      "answer": "Nothing."
+    },
+    {
+      "question": "What happens when pull-to-refresh fails?",
+      "answer": "Keep the current list, show Get.snackbar('Could not refresh', message). Never switch to the loading state."
+    },
+    {
+      "question": "Route path and entry point?",
+      "answer": "AppRoutes.notifications = '/notifications' behind AuthGuard. Do not link it from other screens."
+    }
+  ]
+}
