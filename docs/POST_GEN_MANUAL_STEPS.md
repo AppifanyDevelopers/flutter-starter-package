@@ -12,8 +12,8 @@ intentionally manual -- a name and a brand color can't automate them:
    configured -- `Firebase.initializeApp()` fails silently and all three
    become no-ops until you:
    - Create a Firebase project and Android/iOS apps in it matching this
-     project's applicationId/bundleId per flavor (`{{org}}.{{project_name}}`
-     and `{{org}}.{{project_name}}.staging`).
+     project's applicationId/bundleId per flavor (`{{application_id}}`
+     and `{{application_id}}.staging`).
    - Download `google-services.json` into `android/app/` (the Google
      Services Gradle plugin only activates once this file exists).
    - Download `GoogleService-Info.plist`, add it to `ios/Runner/` **via

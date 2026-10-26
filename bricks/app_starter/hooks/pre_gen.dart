@@ -35,16 +35,19 @@ void run(HookContext context) {
   // it doesn't stop the raw character from breaking the surrounding syntax.
   vars['app_name_dart'] = appName.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
 
-  final org = (vars['org'] as String).trim();
-  final orgSegments = org.split('.');
-  if (orgSegments.length < 2 ||
-      orgSegments.any((s) => !_orgSegmentPattern.hasMatch(s))) {
+  final applicationId = (vars['application_id'] as String).trim();
+  final idSegments = applicationId.split('.');
+  if (idSegments.length < 2 ||
+      idSegments.any((s) => !_orgSegmentPattern.hasMatch(s))) {
     throw Exception(
-      'Invalid org "$org". Must be reverse-DNS with at least two segments, '
-      'each starting with a letter and containing only letters/digits '
-      '(e.g. com.acme).',
+      'Invalid application_id "$applicationId". Must be reverse-DNS with at least '
+      'two segments, each starting with a letter and containing only letters '
+      'and digits -- no underscores or hyphens, which iOS bundle ids and '
+      'Android packages reject (e.g. com.acme.rentals).',
     );
   }
+  // `flutter create --org` wants the id minus its last segment.
+  vars['application_id_parent'] = idSegments.sublist(0, idSegments.length - 1).join('.');
 
   final seedColor = (vars['seed_color'] as String).trim();
   final match = _hexColorPattern.firstMatch(seedColor);
@@ -72,7 +75,7 @@ void run(HookContext context) {
   }
 
   context.logger.info(
-    'Generating "$appName" ($projectName, org: $org, '
+    'Generating "$appName" ($projectName, id: $applicationId, '
     'seed color: #${vars['seed_color_hex']})...',
   );
 }

@@ -98,11 +98,12 @@ Future<void> _generate(Directory app) async {
   vars.writeAsStringSync(jsonEncode({
     'project_name': 'verify_app',
     'app_name': 'Verify App',
-    'org': 'com.example.verify',
+    'application_id': 'com.example.verify',
     'seed_color': '#1E88E5',
     'description': 'eval app',
     'api_base_url_staging': 'https://staging-api.example.com/api',
     'api_base_url_production': 'https://api.example.com/api',
+    'ios_app_store_url': 'https://apps.apple.com/app/id0000000000',
   }));
   for (final cmd in [
     ['mason', 'get'],

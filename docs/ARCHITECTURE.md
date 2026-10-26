@@ -268,8 +268,10 @@ banner, so it shows above every screen without touching individual screens.
 
 ## Why `change_app_package_name` isn't in the generator pipeline
 
-`flutter create --org` (step 1 of `post_gen.dart`) already sets the correct
-base Android `applicationId`/iOS `bundleId`. Running
+`flutter create --org` (step 1 of `post_gen.dart`) sets a base id derived from
+`<org>.<project_name>`, which `post_gen` then rewrites to the exact
+`application_id` (Android namespace and `MainActivity` package, iOS base
+bundle ids); flavorizr sets the per-flavor ids. Running
 `change_app_package_name` afterwards would do a blind global find/replace of
 the bundle id across every Xcode build configuration -- but by then
 `flutter_flavorizr` (step 3) has already created distinct per-flavor

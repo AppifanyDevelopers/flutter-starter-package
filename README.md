@@ -12,7 +12,7 @@ in-app update prompt, Firebase push notifications with tap-to-navigate
 lanes. Everything else runs against an in-memory fake backend by default,
 so a freshly generated app runs immediately with no server setup.
 
-Spin up a new client app in minutes: give it a name, an org id, and a brand
+Spin up a new client app in minutes: give it a name, an application id, and a brand
 color, and get a working app with auth + settings + dashboard already done.
 
 ## Generate a new project
@@ -28,7 +28,7 @@ color, and get a working app with auth + settings + dashboard already done.
    ```bash
    dart scripts/create_app.dart
    ```
-   It prompts for the project name, app name, org/package name, brand
+   It prompts for the project name, app name, application id, brand
    color, description, and API URLs -- and, since these are real per-client
    files rather than text Mason can template, optionally a real **app
    icon** (PNG) and the two **Firebase config files**
@@ -65,7 +65,7 @@ cat > vars.json <<'EOF'
 {
   "project_name": "acme_rentals",
   "app_name": "Acme Rentals",
-  "org": "com.acme",
+  "application_id": "com.acme.rentals",
   "seed_color": "#1E88E5",
   "api_base_url_staging": "https://staging-api.acme.com/api",
   "api_base_url_production": "https://api.acme.com/api",

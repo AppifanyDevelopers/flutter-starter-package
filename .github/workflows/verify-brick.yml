@@ -32,7 +32,7 @@ jobs:
           {
             "project_name": "verify_app",
             "app_name": "Verify App",
-            "org": "com.example.verify",
+            "application_id": "com.example.verify",
             "seed_color": "#1E88E5",
             "description": "CI verification app",
             "api_base_url_staging": "https://staging-api.example.com/api",

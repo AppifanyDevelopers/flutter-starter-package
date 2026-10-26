@@ -18,11 +18,11 @@ vars:
     description: Human-readable name shown on the home screen and in flavor labels.
     default: My Starter App
     prompt: "App display name (e.g. Acme Rentals)"
-  org:
+  application_id:
     type: string
-    description: Reverse-DNS org id for Android applicationId / iOS bundleId (e.g. com.acme).
-    default: com.example
-    prompt: "Organization id, reverse-DNS (e.g. com.acme)"
+    description: Exact Android applicationId / iOS bundleId for production (e.g. com.acme.rentals). Staging appends .staging. The project name is NOT appended.
+    default: com.example.myapp
+    prompt: "Application ID, used exactly as typed (e.g. com.acme.rentals)"
   seed_color:
     type: string
     description: 6-digit hex, with or without leading '#'. Drives ColorScheme.fromSeed.

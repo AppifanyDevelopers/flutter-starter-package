@@ -276,12 +276,12 @@ void _wireIosAppleSignIn(HookContext context) {
 /// docs/POST_GEN_MANUAL_STEPS.md, not scaffolded here. `flutter build` is
 /// shelled out to rather than invoking Gradle/Xcode directly, since that's
 /// what actually bundles Flutter's assets correctly.
-void _scaffoldFastlane(HookContext context, {required String org, required String projectName}) {
+void _scaffoldFastlane(HookContext context, {required String applicationId}) {
   Directory('android/fastlane').createSync(recursive: true);
   File('android/fastlane/Appfile').writeAsStringSync('''
 # See ../../docs/POST_GEN_MANUAL_STEPS.md before adding deploy lanes -- this
 # file only needs a value here once you do.
-package_name("$org.$projectName")
+package_name("$applicationId")
 ''');
   File('android/fastlane/Fastfile').writeAsStringSync('''
 default_platform(:android)
@@ -309,10 +309,10 @@ end
 
   Directory('ios/fastlane').createSync(recursive: true);
   File('ios/fastlane/Appfile').writeAsStringSync('''
-# Production bundle id; staging is "$org.$projectName.staging".
+# Production bundle id; staging is "$applicationId.staging".
 # See ../../docs/POST_GEN_MANUAL_STEPS.md before adding deploy lanes -- an
 # apple_id and team need to go here once you do.
-app_identifier("$org.$projectName")
+app_identifier("$applicationId")
 ''');
   File('ios/fastlane/Fastfile').writeAsStringSync('''
 default_platform(:ios)
@@ -345,19 +345,91 @@ end
   context.logger.detail('Scaffolded build-only Fastlane lanes for android/ and ios/.');
 }
 
+/// `flutter create` sets the Android `namespace` and the `MainActivity`
+/// package to `<org>.<project_name>`. The `applicationId` per flavor already
+/// comes from flavorizr.yaml, but a namespace like `com.acme.my_app` would
+/// still carry the project name (and an underscore), so rewrite both to the
+/// application id and move `MainActivity.kt` to match.
+void _alignAndroidIdentifiers(HookContext context, String applicationId) {
+  final gradle = File('android/app/build.gradle.kts');
+  if (gradle.existsSync()) {
+    gradle.writeAsStringSync(
+      gradle
+          .readAsStringSync()
+          .replaceFirstMapped(
+            RegExp(r'namespace\s*=\s*"[^"]*"'),
+            (_) => 'namespace = "$applicationId"',
+          )
+          // The defaultConfig id is flutter create's `<org>.<project_name>`;
+          // flavor ids (already exact) are left alone.
+          .replaceAllMapped(RegExp(r'applicationId\s*=\s*"([^"]*)"'), (m) {
+        final value = m.group(1)!;
+        return value == applicationId || value == '$applicationId.staging'
+            ? m.group(0)!
+            : 'applicationId = "$applicationId"';
+      }),
+    );
+  }
+
+  final kotlinRoot = Directory('android/app/src/main/kotlin');
+  if (!kotlinRoot.existsSync()) return;
+  final activities =
+      kotlinRoot.listSync(recursive: true).whereType<File>().where((f) => f.path.endsWith('MainActivity.kt')).toList();
+  if (activities.isEmpty) return;
+
+  final old = activities.first;
+  final target = File('${kotlinRoot.path}/${applicationId.replaceAll('.', '/')}/MainActivity.kt');
+  if (old.path != target.path) {
+    target.parent.createSync(recursive: true);
+    target.writeAsStringSync(
+      old.readAsStringSync().replaceFirstMapped(RegExp(r'package\s+[\w.]+'), (_) => 'package $applicationId'),
+    );
+    old.deleteSync();
+    // Remove directories left empty by the move.
+    var dir = old.parent;
+    while (dir.path != kotlinRoot.path && dir.existsSync() && dir.listSync().isEmpty) {
+      final parent = dir.parent;
+      dir.deleteSync();
+      dir = parent;
+    }
+  }
+  context.logger.detail('Aligned Android namespace and MainActivity package to $applicationId.');
+}
+
+/// flutter create leaves a camelCased base id (e.g. `com.acme.myApp`) on the
+/// non-flavored build configurations and the RunnerTests target. Flavored
+/// configurations already carry the right ids from flavorizr.
+void _alignIosBundleIds(HookContext context, String applicationId) {
+  final pbxproj = File('ios/Runner.xcodeproj/project.pbxproj');
+  if (!pbxproj.existsSync()) return;
+  final fixed = pbxproj.readAsStringSync().replaceAllMapped(
+    RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = ([A-Za-z0-9._]+);'),
+    (m) {
+      final value = m.group(1)!;
+      if (value.endsWith('.RunnerTests')) return 'PRODUCT_BUNDLE_IDENTIFIER = $applicationId.RunnerTests;';
+      if (value == applicationId || value == '$applicationId.staging') return m.group(0)!;
+      return 'PRODUCT_BUNDLE_IDENTIFIER = $applicationId;';
+    },
+  );
+  pbxproj.writeAsStringSync(fixed);
+  context.logger.detail('Aligned iOS bundle ids to $applicationId.');
+}
+
 Future<void> run(HookContext context) async {
   final projectName = context.vars['project_name'] as String;
-  final org = context.vars['org'] as String;
+  final applicationId = context.vars['application_id'] as String;
+  final applicationIdParent = context.vars['application_id_parent'] as String;
 
   // 1. Lay down native android/ios folders with the correct project name and
-  //    org. No --overwrite: Mason has already rendered pubspec.yaml, lib/**,
+  //    org (the application id minus its last segment; step 5b rewrites the
+  //    ids flutter create derives from it). No --overwrite: Mason has already rendered pubspec.yaml, lib/**,
   //    and test/widget_test.dart, so `flutter create` only fills in what's
   //    missing (android/, ios/, .metadata, analysis_options.yaml) and skips
   //    everything that already exists.
   await _run(context, 'flutter', [
     'create',
     '--project-name', projectName,
-    '--org', org,
+    '--org', applicationIdParent,
     '--platforms', 'android,ios',
     '.',
   ]);
@@ -369,7 +441,7 @@ Future<void> run(HookContext context) async {
   // 3. Scaffold Fastlane (build-only lanes) for both platforms -- these are
   //    brand new files, so they don't need to run before/after any other
   //    step, just after step 1 has created android/ and ios/.
-  _scaffoldFastlane(context, org: org, projectName: projectName);
+  _scaffoldFastlane(context, applicationId: applicationId);
 
   // 4. Resolve dependencies so flavorizr/launcher_icons (dev dependencies)
   //    are available to run.
@@ -385,6 +457,11 @@ Future<void> run(HookContext context) async {
     '--force',
     '--processors', _flavorizrProcessors.join(','),
   ]);
+
+  // 5b. flutter create derived ids from `<org>.<project_name>` (underscores,
+  //     camelCase). Make every remaining id exactly the application id.
+  _alignAndroidIdentifiers(context, applicationId);
+  _alignIosBundleIds(context, applicationId);
 
   // 6. Bump the iOS deployment target for Firebase, add the photo-library
   //    permission string for image_picker, register image_cropper's Android

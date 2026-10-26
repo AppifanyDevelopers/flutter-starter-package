@@ -26,7 +26,7 @@ class SplashController extends GetxController {
       await AppUpdateService.checkAndPromptIfNeeded(
         context,
         iosAppStoreUrl: '{{{ios_app_store_url}}}',
-        androidAppStoreUrl: 'https://play.google.com/store/apps/details?id={{org}}.{{project_name}}',
+        androidAppStoreUrl: 'https://play.google.com/store/apps/details?id={{application_id}}',
       );
     }
 

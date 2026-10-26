@@ -2,6 +2,15 @@
 
 ## 0.7.0
 
+- **Breaking:** the `org` brick var is replaced by `application_id`, used
+  exactly as typed for the Android `applicationId` and iOS bundle id
+  (staging adds `.staging`). The project name is no longer appended, so
+  `com.acme.rentals` is `com.acme.rentals`, not
+  `com.acme.rentals.rentals_app`. Underscores and hyphens are rejected.
+  `post_gen` also rewrites the Android `namespace`/`MainActivity` package and
+  the leftover iOS base bundle ids that `flutter create` derives from the
+  project name.
+
 - **Breaking for scripted generation:** new brick var `ios_app_store_url`
   (used by the update dialog instead of a hardcoded `id0000000000`). Scripts
   that call `mason make -c vars.json` must now include it.

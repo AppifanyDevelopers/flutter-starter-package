@@ -2,7 +2,7 @@
 //
 // Usage: dart scripts/create_app.dart
 //
-// Asks for everything Mason's own `brick.yaml` vars need (project name, org,
+// Asks for everything Mason's own `brick.yaml` vars need (project name, application id,
 // seed color, API URLs) plus three things Mason can't template because
 // they're real per-client files, not text: an app icon image, and the two
 // Firebase config files. No external packages -- run directly with `dart`,
@@ -29,11 +29,13 @@ Future<void> main() async {
         : 'Must be lower_snake_case, starting with a letter (e.g. acme_rentals).',
   );
   final appName = _ask('App display name (e.g. Acme Rentals)', required: true);
-  final org = _ask(
-    'Organization / package name prefix, reverse-DNS (e.g. com.acme)',
+  final applicationId = _ask(
+    'Application ID, used exactly as typed for Android and iOS (e.g. com.acme.rentals)',
+    required: true,
     validator: (v) => _orgPattern.hasMatch(v)
         ? null
-        : 'Must be reverse-DNS with at least two segments (e.g. com.acme).',
+        : 'Reverse-DNS, at least two segments, letters and digits only -- no underscores or hyphens '
+            '(e.g. com.acme.rentals).',
   );
   final seedColor = _ask(
     'Brand color (hex, e.g. #6750A4)',
@@ -65,17 +67,17 @@ Future<void> main() async {
   );
 
   stdout.writeln('\n--- Firebase (required: push, Crashlytics, Analytics, Google Sign-In) ---');
-  stdout.writeln('Create the Android apps for "$org.$projectName" AND "$org.$projectName.staging",');
+  stdout.writeln('Create the Android apps for "$applicationId" AND "$applicationId.staging",');
   stdout.writeln('enable the Google sign-in provider, then download both files.');
   final googleServicesPath = _askRequiredFile(
     'google-services.json (Android Firebase config)',
     extensions: ['.json'],
-    validate: (path) => _validateGoogleServices(path, org, projectName),
+    validate: (path) => _validateGoogleServices(path, applicationId),
   );
   final googleServiceInfoPlistPath = _askRequiredFile(
     'GoogleService-Info.plist (iOS Firebase config)',
     extensions: ['.plist'],
-    validate: (path) => _validatePlist(path, org, projectName),
+    validate: (path) => _validatePlist(path, applicationId),
   );
 
   stdout.writeln('\n--- Optional ---');
@@ -85,7 +87,7 @@ Future<void> main() async {
   stdout.writeln('Output:              $outputPath');
   stdout.writeln('Project name:        $projectName');
   stdout.writeln('App name:            $appName');
-  stdout.writeln('Org:                 $org');
+  stdout.writeln('Application ID:      $applicationId (staging: $applicationId.staging)');
   stdout.writeln('Seed color:          $seedColor');
   stdout.writeln('Description:         $description');
   stdout.writeln('API (staging):       $apiStaging');
@@ -95,7 +97,7 @@ Future<void> main() async {
   stdout.writeln('google-services.json: $googleServicesPath');
   stdout.writeln('GoogleService-Info.plist: $googleServiceInfoPlistPath');
   stdout.write('\nGenerate with these values? [Y/n] ');
-  final confirmed = (stdin.readLineSync() ?? '').trim().toLowerCase();
+  final confirmed = _readLine().toLowerCase();
   if (confirmed == 'n' || confirmed == 'no') {
     stdout.writeln('Cancelled.');
     exit(0);
@@ -109,7 +111,7 @@ Future<void> main() async {
   varsFile.writeAsStringSync(jsonEncode({
     'project_name': projectName,
     'app_name': appName,
-    'org': org,
+    'application_id': applicationId,
     'seed_color': seedColor,
     'description': description,
     'api_base_url_staging': apiStaging,
@@ -157,6 +159,17 @@ Future<void> main() async {
   stdout.writeln('  See docs/POST_GEN_MANUAL_STEPS.md.');
 }
 
+/// Reads a line, or aborts if stdin is closed (otherwise a required prompt
+/// would loop forever when input is piped or the terminal is gone).
+String _readLine() {
+  final line = stdin.readLineSync();
+  if (line == null) {
+    stderr.writeln('\nInput ended before all required answers were given. Cancelled.');
+    exit(64);
+  }
+  return line.trim();
+}
+
 String _ask(
   String prompt, {
   String? defaultValue,
@@ -166,7 +179,7 @@ String _ask(
   while (true) {
     final suffix = defaultValue != null ? ' [$defaultValue]' : '';
     stdout.write('$prompt$suffix: ');
-    final input = stdin.readLineSync()?.trim() ?? '';
+    final input = _readLine();
     final value = input.isEmpty ? (defaultValue ?? '') : input;
 
     if (value.isEmpty && required) {
@@ -185,7 +198,7 @@ String _ask(
 String? _askOptionalFile(String label, {required List<String> extensions}) {
   while (true) {
     stdout.write('$label (path, Enter to skip): ');
-    final input = stdin.readLineSync()?.trim() ?? '';
+    final input = _readLine();
     if (input.isEmpty) return null;
 
     final path = _expandHome(input);
@@ -241,7 +254,7 @@ String _askRequiredFile(
 }) {
   while (true) {
     stdout.write('$label (path, required): ');
-    final input = stdin.readLineSync()?.trim() ?? '';
+    final input = _readLine();
     if (input.isEmpty) {
       stdout.writeln('  This file is required.');
       continue;
@@ -266,7 +279,7 @@ String _askRequiredFile(
 
 /// Both flavors build from this one file, so it must list the production AND
 /// staging package, and Google sign-in must be enabled (a type-3 OAuth client).
-String? _validateGoogleServices(String path, String org, String projectName) {
+String? _validateGoogleServices(String path, String applicationId) {
   final Map<String, dynamic> json;
   try {
     json = jsonDecode(File(path).readAsStringSync()) as Map<String, dynamic>;
@@ -279,7 +292,7 @@ String? _validateGoogleServices(String path, String org, String projectName) {
       if ((c['client_info'] as Map?)?['android_client_info']?['package_name'] is String)
         (c['client_info'] as Map)['android_client_info']['package_name'] as String,
   };
-  final production = '$org.$projectName';
+  final production = applicationId;
   final staging = '$production.staging';
   final missing = [production, staging].where((p) => !packages.contains(p)).toList();
   if (missing.isNotEmpty) {
@@ -304,7 +317,7 @@ Map<String, String> _readPlistStrings(String path) {
 }
 
 /// The plist must carry the Google keys and belong to this app's bundle id.
-String? _validatePlist(String path, String org, String projectName) {
+String? _validatePlist(String path, String applicationId) {
   final values = _readPlistStrings(path);
   for (final key in ['CLIENT_ID', 'REVERSED_CLIENT_ID', 'BUNDLE_ID']) {
     if (!values.containsKey(key)) {
@@ -312,7 +325,7 @@ String? _validatePlist(String path, String org, String projectName) {
           'and re-download the file.';
     }
   }
-  final production = '$org.$projectName';
+  final production = applicationId;
   final bundleId = values['BUNDLE_ID']!;
   if (bundleId != production && bundleId != '$production.staging') {
     return 'BUNDLE_ID is "$bundleId" but this project uses $production (production) / '

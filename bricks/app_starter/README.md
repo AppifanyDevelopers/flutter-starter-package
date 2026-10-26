@@ -19,7 +19,7 @@ See the repo root [README.md](../../README.md) for the full usage guide.
 |---|---|---|
 | `project_name` | Dart package name, lower_snake_case | `my_starter_app` |
 | `app_name` | Human-readable display name | `My Starter App` |
-| `org` | Reverse-DNS org id (Android applicationId / iOS bundleId) | `com.example` |
+| `application_id` | Exact Android applicationId / iOS bundleId for production, used as typed (staging adds `.staging`; the project name is not appended) | `com.example.myapp` |
 | `seed_color` | Hex brand color, drives `ColorScheme.fromSeed` | `#6750A4` |
 | `description` | pubspec.yaml description | `A Flutter app generated from app_starter.` |
 | `api_base_url_staging` | Staging API base URL, including the `/api` prefix | `https://staging-api.example.com/api` |
@@ -33,7 +33,7 @@ cat > vars.json <<'EOF'
 {
   "project_name": "acme_rentals",
   "app_name": "Acme Rentals",
-  "org": "com.acme",
+  "application_id": "com.acme.rentals",
   "seed_color": "#1E88E5",
   "api_base_url_staging": "https://staging-api.acme.com/api",
   "api_base_url_production": "https://api.acme.com/api",

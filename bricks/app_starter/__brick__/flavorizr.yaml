@@ -3,13 +3,13 @@ flavors:
     app:
       name: "{{{app_name}}}"
     android:
-      applicationId: "{{org}}.{{project_name}}"
+      applicationId: "{{application_id}}"
     ios:
-      bundleId: "{{org}}.{{project_name}}"
+      bundleId: "{{application_id}}"
   staging:
     app:
       name: "{{{app_name}}} Staging"
     android:
-      applicationId: "{{org}}.{{project_name}}.staging"
+      applicationId: "{{application_id}}.staging"
     ios:
-      bundleId: "{{org}}.{{project_name}}.staging"
+      bundleId: "{{application_id}}.staging"

@@ -18,13 +18,13 @@ works regardless of your current working directory.
 | Output path | Where the project is created | Yes |
 | Package/project name | `project_name` brick var | Yes |
 | App display name | `app_name` brick var | Yes |
-| Organization / package name prefix | `org` brick var | Yes |
+| Application ID (exactly the Android applicationId / iOS bundle id; letters and digits only) | `application_id` brick var | Yes |
 | Brand color | `seed_color` brick var | No (default `#6750A4`) |
 | Description | `description` brick var | No |
 | Staging/production API URLs (include the `/api` prefix; trailing `/` is stripped) | `api_base_url_staging`/`_production` | No |
 | iOS App Store URL | `ios_app_store_url` | No (placeholder allowed) |
 | App icon (PNG) | Copied to `assets/logo/icon.png`, then `flutter_launcher_icons` is rerun | No |
-| `google-services.json` | Copied to `android/app/`. Validated: must list both `<org>.<project>` and `<org>.<project>.staging`, and have Google sign-in enabled | **Yes** |
+| `google-services.json` | Copied to `android/app/`. Validated: must list both `<application_id>` and `<application_id>.staging`, and have Google sign-in enabled | **Yes** |
 | `GoogleService-Info.plist` | Copied to `ios/Runner/`. Validated: must contain `CLIENT_ID`, `REVERSED_CLIENT_ID` and a `BUNDLE_ID` matching this project. The Google Sign-In keys in `Info.plist` are filled from it | **Yes** |
 
 The two Firebase files are required: push, Crashlytics, Analytics and Google
