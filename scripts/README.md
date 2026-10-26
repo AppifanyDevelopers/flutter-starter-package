@@ -15,7 +15,7 @@ works regardless of your current working directory.
 
 | Prompt | Maps to | Required? |
 |---|---|---|
-| Output path | Where the project is created | Yes |
+| Parent folder | Where to create the project. A `<project_name>` folder is created inside it, so files are never spread into the folder you pick; the script refuses if that folder already exists and is not empty | Yes |
 | Package/project name | `project_name` brick var | Yes |
 | App display name | `app_name` brick var | Yes |
 | Application ID (exactly the Android applicationId / iOS bundle id; letters and digits only) | `application_id` brick var | Yes |

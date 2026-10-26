@@ -2,6 +2,10 @@
 
 ## 0.7.0
 
+- `scripts/create_app.dart` asks for a parent folder and creates
+  `<parent>/<project_name>/` itself (it used to write the project's files
+  straight into whatever folder you typed, e.g. the Desktop). It refuses a
+  target folder that already exists and is not empty.
 - **Breaking:** the `org` brick var is replaced by `application_id`, used
   exactly as typed for the Android `applicationId` and iOS bundle id
   (staging adds `.staging`). The project name is no longer appended, so

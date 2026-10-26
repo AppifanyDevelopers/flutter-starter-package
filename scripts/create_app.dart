@@ -18,16 +18,26 @@ final _hexColorPattern = RegExp(r'^#?[0-9a-fA-F]{6}$');
 Future<void> main() async {
   stdout.writeln('=== flutter_starter_pack: new project generator ===\n');
 
-  final outputPath = _ask(
-    'Where should the new project be created? (path, will be created)',
-    required: true,
-  );
   final projectName = _ask(
     'Package/project name (lower_snake_case, e.g. acme_rentals)',
+    required: true,
     validator: (v) => _projectNamePattern.hasMatch(v)
         ? null
         : 'Must be lower_snake_case, starting with a letter (e.g. acme_rentals).',
   );
+  // The project always gets its own folder, <parent>/<project_name>, so its
+  // files can never be spread into a folder that already holds other things.
+  final parentPath = _expandHome(_ask(
+    'Parent folder to create the project in (a "$projectName" folder is created inside it)',
+    required: true,
+  ));
+  final outputPath = '${Directory(parentPath).absolute.path}/$projectName';
+  final existing = Directory(outputPath);
+  if (existing.existsSync() && existing.listSync().isNotEmpty) {
+    stderr.writeln('\n"$outputPath" already exists and is not empty. Pick another parent folder '
+        'or project name, or delete it first.');
+    exit(64);
+  }
   final appName = _ask('App display name (e.g. Acme Rentals)', required: true);
   final applicationId = _ask(
     'Application ID, used exactly as typed for Android and iOS (e.g. com.acme.rentals)',
@@ -84,7 +94,7 @@ Future<void> main() async {
   final iconPath = _askOptionalFile('App icon (PNG, ideally 1024x1024)', extensions: ['.png']);
 
   stdout.writeln('\n--- Summary ---');
-  stdout.writeln('Output:              $outputPath');
+  stdout.writeln('Project folder:     $outputPath');
   stdout.writeln('Project name:        $projectName');
   stdout.writeln('App name:            $appName');
   stdout.writeln('Application ID:      $applicationId (staging: $applicationId.staging)');
@@ -104,7 +114,7 @@ Future<void> main() async {
   }
 
   final repoRoot = File.fromUri(Platform.script).parent.parent.path;
-  final outputDir = Directory(outputPath).absolute;
+  final outputDir = Directory(outputPath);
   outputDir.createSync(recursive: true);
 
   final varsFile = File('${Directory.systemTemp.createTempSync('app_starter_vars').path}/vars.json');
