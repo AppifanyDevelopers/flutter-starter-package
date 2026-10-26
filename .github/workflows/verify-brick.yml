@@ -35,8 +35,9 @@ jobs:
             "org": "com.example.verify",
             "seed_color": "#1E88E5",
             "description": "CI verification app",
-            "api_base_url_staging": "https://staging-api.example.com/api/v1",
-            "api_base_url_production": "https://api.example.com/api/v1"
+            "api_base_url_staging": "https://staging-api.example.com/api",
+            "api_base_url_production": "https://api.example.com/api",
+            "ios_app_store_url": "https://apps.apple.com/app/id0000000000"
           }
           EOF
           mason make app_starter -o /tmp/verify-app -c /tmp/verify-vars.json --on-conflict overwrite

@@ -46,28 +46,40 @@ Future<void> main() async {
     'Short project description',
     defaultValue: 'A Flutter app generated from app_starter.',
   );
-  final apiStaging = _ask(
-    'Staging API base URL (used once you swap in a real backend)',
-    defaultValue: 'https://staging-api.example.com/api/v1',
+  final apiStaging = _normalizeUrl(_ask(
+    'Staging API base URL, including the /api prefix (endpoints are appended to it)',
+    defaultValue: 'https://staging-api.example.com/api',
     validator: (v) => v.startsWith('https://') ? null : 'Must start with https://.',
-  );
-  final apiProduction = _ask(
-    'Production API base URL (used once you swap in a real backend)',
-    defaultValue: 'https://api.example.com/api/v1',
+  ));
+  final apiProduction = _normalizeUrl(_ask(
+    'Production API base URL, including the /api prefix (endpoints are appended to it)',
+    defaultValue: 'https://api.example.com/api',
     validator: (v) => v.startsWith('https://') ? null : 'Must start with https://.',
+  ));
+  final iosAppStoreUrl = _ask(
+    'iOS App Store URL for the update dialog (Enter to use a placeholder until the app exists)',
+    defaultValue: 'https://apps.apple.com/app/id0000000000',
+    validator: (v) => v.startsWith('https://apps.apple.com/') || v.startsWith('https://itunes.apple.com/')
+        ? null
+        : 'Must be an App Store link, e.g. https://apps.apple.com/app/id1234567890.',
   );
 
-  stdout.writeln('\n--- Optional: real branding/Firebase files ---');
-  stdout.writeln('Press Enter to skip any of these -- they can be added later.');
-  final iconPath = _askOptionalFile('App icon (PNG, ideally 1024x1024)', extensions: ['.png']);
-  final googleServicesPath = _askOptionalFile(
+  stdout.writeln('\n--- Firebase (required: push, Crashlytics, Analytics, Google Sign-In) ---');
+  stdout.writeln('Create the Android apps for "$org.$projectName" AND "$org.$projectName.staging",');
+  stdout.writeln('enable the Google sign-in provider, then download both files.');
+  final googleServicesPath = _askRequiredFile(
     'google-services.json (Android Firebase config)',
     extensions: ['.json'],
+    validate: (path) => _validateGoogleServices(path, org, projectName),
   );
-  final googleServiceInfoPlistPath = _askOptionalFile(
+  final googleServiceInfoPlistPath = _askRequiredFile(
     'GoogleService-Info.plist (iOS Firebase config)',
     extensions: ['.plist'],
+    validate: (path) => _validatePlist(path, org, projectName),
   );
+
+  stdout.writeln('\n--- Optional ---');
+  final iconPath = _askOptionalFile('App icon (PNG, ideally 1024x1024)', extensions: ['.png']);
 
   stdout.writeln('\n--- Summary ---');
   stdout.writeln('Output:              $outputPath');
@@ -78,9 +90,10 @@ Future<void> main() async {
   stdout.writeln('Description:         $description');
   stdout.writeln('API (staging):       $apiStaging');
   stdout.writeln('API (production):    $apiProduction');
+  stdout.writeln('iOS App Store URL:   $iosAppStoreUrl');
   stdout.writeln('App icon:            ${iconPath ?? '(skipped -- placeholder icon kept)'}');
-  stdout.writeln('google-services.json: ${googleServicesPath ?? '(skipped -- push disabled until added)'}');
-  stdout.writeln('GoogleService-Info.plist: ${googleServiceInfoPlistPath ?? '(skipped -- push disabled until added)'}');
+  stdout.writeln('google-services.json: $googleServicesPath');
+  stdout.writeln('GoogleService-Info.plist: $googleServiceInfoPlistPath');
   stdout.write('\nGenerate with these values? [Y/n] ');
   final confirmed = (stdin.readLineSync() ?? '').trim().toLowerCase();
   if (confirmed == 'n' || confirmed == 'no') {
@@ -101,6 +114,7 @@ Future<void> main() async {
     'description': description,
     'api_base_url_staging': apiStaging,
     'api_base_url_production': apiProduction,
+    'ios_app_store_url': iosAppStoreUrl,
   }));
 
   stdout.writeln('\nResolving the brick...');
@@ -119,33 +133,28 @@ Future<void> main() async {
     await _runInherited('dart', ['run', 'flutter_launcher_icons'], workingDirectory: outputDir.path);
   }
 
-  if (googleServicesPath != null) {
-    stdout.writeln('\nCopying google-services.json into android/app/...');
-    Directory('${outputDir.path}/android/app').createSync(recursive: true);
-    File(googleServicesPath).copySync('${outputDir.path}/android/app/google-services.json');
-    _checkAndroidPackageName(googleServicesPath, org, projectName);
-  }
+  stdout.writeln('\nCopying google-services.json into android/app/...');
+  Directory('${outputDir.path}/android/app').createSync(recursive: true);
+  File(googleServicesPath).copySync('${outputDir.path}/android/app/google-services.json');
 
-  if (googleServiceInfoPlistPath != null) {
-    stdout.writeln('\nCopying GoogleService-Info.plist into ios/Runner/...');
-    Directory('${outputDir.path}/ios/Runner').createSync(recursive: true);
-    File(googleServiceInfoPlistPath).copySync('${outputDir.path}/ios/Runner/GoogleService-Info.plist');
-  }
+  stdout.writeln('Copying GoogleService-Info.plist into ios/Runner/...');
+  Directory('${outputDir.path}/ios/Runner').createSync(recursive: true);
+  File(googleServiceInfoPlistPath).copySync('${outputDir.path}/ios/Runner/GoogleService-Info.plist');
+
+  stdout.writeln('Filling the Google Sign-In keys in ios/Runner/Info.plist from the plist...');
+  _fillGoogleSignInKeys(googleServiceInfoPlistPath, '${outputDir.path}/ios/Runner/Info.plist');
 
   stdout.writeln('\n=== Done ===');
   stdout.writeln('"$appName" is ready at ${outputDir.path}');
   stdout.writeln('\nNext steps:');
   stdout.writeln('  cd ${outputDir.path}');
   stdout.writeln('  flutter run --flavor staging -t lib/main.dart --dart-define=FLAVOR=staging');
-  if (googleServiceInfoPlistPath != null) {
-    stdout.writeln('\nGoogleService-Info.plist was copied to disk, but Xcode will not bundle it');
-    stdout.writeln('automatically -- open ios/Runner.xcworkspace and drag the file into the');
-    stdout.writeln('Runner target (see docs/POST_GEN_MANUAL_STEPS.md).');
-  }
-  if (googleServicesPath == null && googleServiceInfoPlistPath == null) {
-    stdout.writeln('\nPush notifications are inert until Firebase config is added -- see');
-    stdout.writeln('docs/POST_GEN_MANUAL_STEPS.md.');
-  }
+  stdout.writeln('\nStill manual (cannot be scripted):');
+  stdout.writeln('  - Xcode: drag GoogleService-Info.plist into the Runner target, enable Push');
+  stdout.writeln('    Notifications + Background Modes, upload the APNs key to Firebase.');
+  stdout.writeln('  - Sign In with Apple: enable the capability for your App ID.');
+  stdout.writeln('  - Android Google Sign-In: add your debug/release SHA-1 and SHA-256 to Firebase.');
+  stdout.writeln('  See docs/POST_GEN_MANUAL_STEPS.md.');
 }
 
 String _ask(
@@ -221,31 +230,112 @@ Future<void> _runInherited(
   }
 }
 
-/// Best-effort sanity check: warns (doesn't block) if the provided
-/// google-services.json doesn't list this project's applicationId, since
-/// the Google Services Gradle plugin will otherwise fail the build later
-/// with a less obvious error.
-void _checkAndroidPackageName(String googleServicesPath, String org, String projectName) {
-  try {
-    final json = jsonDecode(File(googleServicesPath).readAsStringSync()) as Map<String, dynamic>;
-    final clients = json['client'] as List<dynamic>? ?? [];
-    final packageNames = clients
-        .map((c) => (c as Map<String, dynamic>)['client_info']
-            as Map<String, dynamic>?)
-        .whereType<Map<String, dynamic>>()
-        .map((info) => (info['android_client_info'] as Map<String, dynamic>?)?['package_name'] as String?)
-        .whereType<String>()
-        .toSet();
+String _normalizeUrl(String url) => url.endsWith('/') ? url.substring(0, url.length - 1) : url;
 
-    final expectedProduction = '$org.$projectName';
-    final expectedStaging = '$expectedProduction.staging';
-    if (!packageNames.contains(expectedProduction) && !packageNames.contains(expectedStaging)) {
-      stdout.writeln('  Warning: google-services.json lists ${packageNames.join(', ')},');
-      stdout.writeln('  but this project uses $expectedProduction / $expectedStaging.');
-      stdout.writeln('  The Android build will fail until these match -- add matching Android');
-      stdout.writeln('  apps in your Firebase project, or re-download the config file.');
+/// Required file prompt: re-asks until the path exists, has the right
+/// extension and passes [validate] (which returns an error message or null).
+String _askRequiredFile(
+  String label, {
+  required List<String> extensions,
+  required String? Function(String path) validate,
+}) {
+  while (true) {
+    stdout.write('$label (path, required): ');
+    final input = stdin.readLineSync()?.trim() ?? '';
+    if (input.isEmpty) {
+      stdout.writeln('  This file is required.');
+      continue;
     }
-  } catch (_) {
-    // Not valid JSON in the expected shape -- let the real build surface the error.
+    final path = _expandHome(input);
+    if (!File(path).existsSync()) {
+      stdout.writeln('  No file found at "$path". Try again.');
+      continue;
+    }
+    if (!extensions.any(path.toLowerCase().endsWith)) {
+      stdout.writeln('  Expected a ${extensions.join(' or ')} file. Try again.');
+      continue;
+    }
+    final error = validate(path);
+    if (error != null) {
+      stdout.writeln('  $error');
+      continue;
+    }
+    return path;
   }
+}
+
+/// Both flavors build from this one file, so it must list the production AND
+/// staging package, and Google sign-in must be enabled (a type-3 OAuth client).
+String? _validateGoogleServices(String path, String org, String projectName) {
+  final Map<String, dynamic> json;
+  try {
+    json = jsonDecode(File(path).readAsStringSync()) as Map<String, dynamic>;
+  } catch (_) {
+    return 'Not a valid google-services.json (could not parse JSON).';
+  }
+  final clients = (json['client'] as List<dynamic>? ?? []).whereType<Map<String, dynamic>>().toList();
+  final packages = {
+    for (final c in clients)
+      if ((c['client_info'] as Map?)?['android_client_info']?['package_name'] is String)
+        (c['client_info'] as Map)['android_client_info']['package_name'] as String,
+  };
+  final production = '$org.$projectName';
+  final staging = '$production.staging';
+  final missing = [production, staging].where((p) => !packages.contains(p)).toList();
+  if (missing.isNotEmpty) {
+    return 'This file lists ${packages.isEmpty ? 'no Android apps' : packages.join(', ')} but is missing '
+        '${missing.join(' and ')}. Add those Android apps in Firebase and download the file again.';
+  }
+  final hasWebClient = clients.any((c) =>
+      (c['oauth_client'] as List<dynamic>? ?? []).any((o) => o is Map && o['client_type'] == 3));
+  if (!hasWebClient) {
+    return 'Google sign-in is not enabled (no OAuth web client in the file). Enable the Google '
+        'provider under Authentication > Sign-in method, then re-download.';
+  }
+  return null;
+}
+
+Map<String, String> _readPlistStrings(String path) {
+  final xml = File(path).readAsStringSync();
+  return {
+    for (final m in RegExp(r'<key>([^<]+)</key>\s*<string>([^<]*)</string>').allMatches(xml))
+      m.group(1)!: m.group(2)!,
+  };
+}
+
+/// The plist must carry the Google keys and belong to this app's bundle id.
+String? _validatePlist(String path, String org, String projectName) {
+  final values = _readPlistStrings(path);
+  for (final key in ['CLIENT_ID', 'REVERSED_CLIENT_ID', 'BUNDLE_ID']) {
+    if (!values.containsKey(key)) {
+      return 'GoogleService-Info.plist has no $key. Enable the Google sign-in provider in Firebase '
+          'and re-download the file.';
+    }
+  }
+  final production = '$org.$projectName';
+  final bundleId = values['BUNDLE_ID']!;
+  if (bundleId != production && bundleId != '$production.staging') {
+    return 'BUNDLE_ID is "$bundleId" but this project uses $production (production) / '
+        '$production.staging (staging). Add a matching iOS app in Firebase and re-download.';
+  }
+  if (bundleId != production) {
+    stdout.writeln('  Note: this plist is for the staging bundle id only; the production flavor '
+        'needs its own GoogleService-Info.plist before release.');
+  } else {
+    stdout.writeln('  Note: this plist is for the production bundle id; the staging flavor '
+        '($production.staging) needs its own plist to use Firebase.');
+  }
+  return null;
+}
+
+/// Replaces the placeholders post_gen left in Info.plist with the real
+/// Google Sign-In values, so the buttons work without hand-editing.
+void _fillGoogleSignInKeys(String plistPath, String infoPlistPath) {
+  final values = _readPlistStrings(plistPath);
+  final info = File(infoPlistPath);
+  var contents = info.readAsStringSync();
+  contents = contents
+      .replaceAll('REPLACE_WITH_REVERSED_CLIENT_ID', values['REVERSED_CLIENT_ID']!)
+      .replaceAll('REPLACE_WITH_CLIENT_ID', values['CLIENT_ID']!);
+  info.writeAsStringSync(contents);
 }

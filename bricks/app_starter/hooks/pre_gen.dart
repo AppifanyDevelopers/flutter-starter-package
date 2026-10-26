@@ -63,6 +63,14 @@ void run(HookContext context) {
     }
   }
 
+  final iosStoreUrl = (vars['ios_app_store_url'] as String).trim();
+  if (!iosStoreUrl.startsWith('https://apps.apple.com/') && !iosStoreUrl.startsWith('https://itunes.apple.com/')) {
+    throw Exception(
+      'Invalid ios_app_store_url "$iosStoreUrl". Must be an App Store link, e.g. '
+      'https://apps.apple.com/app/id1234567890.',
+    );
+  }
+
   context.logger.info(
     'Generating "$appName" ($projectName, org: $org, '
     'seed color: #${vars['seed_color_hex']})...',

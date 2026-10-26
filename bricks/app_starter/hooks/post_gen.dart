@@ -218,7 +218,7 @@ void _wireIosGoogleSignIn(HookContext context) {
           '\t\t\t<string>Editor</string>\n'
           '\t\t\t<key>CFBundleURLSchemes</key>\n'
           '\t\t\t<array>\n'
-          '\t\t\t\t<string>com.googleusercontent.apps.REPLACE_WITH_REVERSED_CLIENT_ID</string>\n'
+          '\t\t\t\t<string>REPLACE_WITH_REVERSED_CLIENT_ID</string>\n'
           '\t\t\t</array>\n'
           '\t\t</dict>\n'
           '\t</array>\n'

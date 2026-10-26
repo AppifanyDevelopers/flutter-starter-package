@@ -21,14 +21,18 @@ works regardless of your current working directory.
 | Organization / package name prefix | `org` brick var | Yes |
 | Brand color | `seed_color` brick var | No (default `#6750A4`) |
 | Description | `description` brick var | No |
-| Staging/production API URLs | `api_base_url_staging`/`_production` | No |
+| Staging/production API URLs (include the `/api` prefix; trailing `/` is stripped) | `api_base_url_staging`/`_production` | No |
+| iOS App Store URL | `ios_app_store_url` | No (placeholder allowed) |
 | App icon (PNG) | Copied to `assets/logo/icon.png`, then `flutter_launcher_icons` is rerun | No |
-| `google-services.json` | Copied to `android/app/` | No |
-| `GoogleService-Info.plist` | Copied to `ios/Runner/` | No |
+| `google-services.json` | Copied to `android/app/`. Validated: must list both `<org>.<project>` and `<org>.<project>.staging`, and have Google sign-in enabled | **Yes** |
+| `GoogleService-Info.plist` | Copied to `ios/Runner/`. Validated: must contain `CLIENT_ID`, `REVERSED_CLIENT_ID` and a `BUNDLE_ID` matching this project. The Google Sign-In keys in `Info.plist` are filled from it | **Yes** |
 
-Everything under "No" can be skipped by pressing Enter and added by hand
-later -- the generated app runs fine without any of them (see the root
-[README.md](../README.md) and [docs/POST_GEN_MANUAL_STEPS.md](../docs/POST_GEN_MANUAL_STEPS.md)).
+The two Firebase files are required: push, Crashlytics, Analytics and Google
+Sign-In are always part of the app, so the script keeps asking until the files
+are valid. Everything else marked "No" can be skipped with Enter. Driving
+`mason make` directly (CI, batch generation) skips this script and therefore
+the Firebase files; it still needs every brick var, including
+`ios_app_store_url`. See [docs/POST_GEN_MANUAL_STEPS.md](../docs/POST_GEN_MANUAL_STEPS.md).
 
 ## Why a script, not more Mason vars
 

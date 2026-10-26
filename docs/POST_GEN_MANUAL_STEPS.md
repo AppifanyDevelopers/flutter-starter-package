@@ -38,14 +38,16 @@ intentionally manual -- a name and a brand color can't automate them:
    when tapped -- unlike the rest of this list, there's no way to fake a
    believable response, since control passes to the native provider SDK
    immediately. Before it can work:
-   - **Google**: create the OAuth client via the same Firebase project
-     already required for push/Crashlytics/Analytics (Firebase
-     auto-provisions one), then in `ios/Runner/Info.plist` replace
-     `REPLACE_WITH_CLIENT_ID` with your `GoogleService-Info.plist`'s
-     `CLIENT_ID`, and `REPLACE_WITH_REVERSED_CLIENT_ID` with its
-     `REVERSED_CLIENT_ID`. For Android, register your debug and release
-     keystores' SHA-1/SHA-256 fingerprints in the Firebase/Google Cloud
-     console -- a per-developer-machine credential that can't be generated.
+   - **Google**: when generated with `scripts/create_app.dart`, the iOS
+     `GIDClientID` and URL scheme in `ios/Runner/Info.plist` are filled in
+     from your `GoogleService-Info.plist` automatically. Only if you
+     generated with `mason make` directly, replace
+     `REPLACE_WITH_CLIENT_ID` with its `CLIENT_ID` and
+     `REPLACE_WITH_REVERSED_CLIENT_ID` with its full `REVERSED_CLIENT_ID`
+     (it already starts with `com.googleusercontent.apps.`). For Android,
+     register your debug and release keystores' SHA-1/SHA-256 fingerprints in
+     the Firebase console -- a per-developer-machine credential that can't be
+     generated.
    - **Apple**: enable the "Sign In with Apple" capability for this app's
      App ID in the Apple Developer Portal (requires a paid Developer
      Program membership) -- the `Runner.entitlements` file and Xcode-side

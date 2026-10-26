@@ -22,8 +22,9 @@ See the repo root [README.md](../../README.md) for the full usage guide.
 | `org` | Reverse-DNS org id (Android applicationId / iOS bundleId) | `com.example` |
 | `seed_color` | Hex brand color, drives `ColorScheme.fromSeed` | `#6750A4` |
 | `description` | pubspec.yaml description | `A Flutter app generated from app_starter.` |
-| `api_base_url_staging` | Staging API base URL (used once a real backend exists) | `https://staging-api.example.com/api/v1` |
-| `api_base_url_production` | Production API base URL (used once a real backend exists) | `https://api.example.com/api/v1` |
+| `api_base_url_staging` | Staging API base URL, including the `/api` prefix | `https://staging-api.example.com/api` |
+| `api_base_url_production` | Production API base URL, including the `/api` prefix | `https://api.example.com/api` |
+| `ios_app_store_url` | App Store link opened by the update dialog (required var when scripting `mason make`; the placeholder id works until the app exists) | `https://apps.apple.com/app/id0000000000` |
 
 ## Generate
 
@@ -34,8 +35,9 @@ cat > vars.json <<'EOF'
   "app_name": "Acme Rentals",
   "org": "com.acme",
   "seed_color": "#1E88E5",
-  "api_base_url_staging": "https://staging-api.acme.com/api/v1",
-  "api_base_url_production": "https://api.acme.com/api/v1",
+  "api_base_url_staging": "https://staging-api.acme.com/api",
+  "api_base_url_production": "https://api.acme.com/api",
+  "ios_app_store_url": "https://apps.apple.com/app/id1234567890",
   "description": "Acme Rentals customer app"
 }
 EOF

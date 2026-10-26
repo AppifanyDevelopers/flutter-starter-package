@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
+
+- **Breaking for scripted generation:** new brick var `ios_app_store_url`
+  (used by the update dialog instead of a hardcoded `id0000000000`). Scripts
+  that call `mason make -c vars.json` must now include it.
+- API base URL prompts and defaults now say "include the `/api` prefix" and
+  default to `.../api` (was `.../api/v1`); `AppEndpoints` are relative to it.
+- `scripts/create_app.dart`: the two Firebase files are now required and
+  validated (package names for both flavors, Google sign-in enabled,
+  `CLIENT_ID`/`REVERSED_CLIENT_ID`/`BUNDLE_ID` present). The Google Sign-In
+  keys in `Info.plist` are filled from the plist, so the Google button works
+  without hand-editing. The `Info.plist` placeholder for the reversed client
+  id is now the whole value (it used to double the `com.googleusercontent`
+  prefix if replaced as documented).
 
 - `DioApiClient` now speaks the reference backend envelope: sends
   `Authorization: Bearer` from `SessionService.readToken`, parses error bodies

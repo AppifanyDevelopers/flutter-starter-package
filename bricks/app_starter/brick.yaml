@@ -3,7 +3,7 @@ description: >-
   A fully functional GetX starter app (fake auth, dashboard, settings) with
   staging/production flavors, .env config, and an in-app update prompt --
   rebrand for a new client in minutes.
-version: 0.6.0
+version: 0.7.0
 environment:
   mason: ">=0.1.0 <1.0.0"
 
@@ -35,9 +35,14 @@ vars:
     prompt: "Short project description"
   api_base_url_staging:
     type: string
-    default: https://staging-api.example.com/api/v1
-    prompt: "Staging API base URL (used once you swap in a real backend)"
+    default: https://staging-api.example.com/api
+    prompt: "Staging API base URL, including the /api prefix (endpoints are appended to it)"
   api_base_url_production:
     type: string
-    default: https://api.example.com/api/v1
-    prompt: "Production API base URL (used once you swap in a real backend)"
+    default: https://api.example.com/api
+    prompt: "Production API base URL, including the /api prefix (endpoints are appended to it)"
+  ios_app_store_url:
+    type: string
+    description: App Store listing opened by the in-app update dialog. The ID only exists once the app is created in App Store Connect.
+    default: https://apps.apple.com/app/id0000000000
+    prompt: "iOS App Store URL (e.g. https://apps.apple.com/app/id1234567890)"

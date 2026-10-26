@@ -67,8 +67,9 @@ cat > vars.json <<'EOF'
   "app_name": "Acme Rentals",
   "org": "com.acme",
   "seed_color": "#1E88E5",
-  "api_base_url_staging": "https://staging-api.acme.com/api/v1",
-  "api_base_url_production": "https://api.acme.com/api/v1",
+  "api_base_url_staging": "https://staging-api.acme.com/api",
+  "api_base_url_production": "https://api.acme.com/api",
+  "ios_app_store_url": "https://apps.apple.com/app/id1234567890",
   "description": "Acme Rentals customer app"
 }
 EOF
