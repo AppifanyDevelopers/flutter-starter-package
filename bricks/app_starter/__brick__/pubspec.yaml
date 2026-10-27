@@ -60,6 +60,7 @@ dependencies:
   # already wired into post_gen.dart -- see docs/ARCHITECTURE.md.
   image_cropper: ^12.2.1
   file_picker: ^10.3.0
+  permission_handler: ^12.0.0
 
   # Powers the offline banner (lib/core/connectivity/connectivity_service.dart)
   connectivity_plus: ^7.3.1

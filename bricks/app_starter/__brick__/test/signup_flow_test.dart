@@ -56,9 +56,13 @@ class _RecordingRepo extends FakeAuthRepository {
 
 class _FakeSession extends SessionService {
   String? savedToken;
+  String? savedUserId;
 
   @override
-  Future<void> saveSession(String token) async => savedToken = token;
+  Future<void> saveSession(String token, {String? userId}) async {
+    savedToken = token;
+    savedUserId = userId;
+  }
 }
 
 void main() {
@@ -206,6 +210,7 @@ void main() {
     expect(repo.calls.last, 'signup');
     expect(repo.signupToken, 'fake-verification-token');
     expect(session.savedToken, isNotNull);
+    expect(session.savedUserId, 'demo-user-1');
     expect(find.text('DASHBOARD'), findsOneWidget);
   });
 }

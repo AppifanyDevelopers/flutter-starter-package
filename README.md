@@ -111,3 +111,9 @@ flutter build ios --no-codesign --debug --flavor production
 (cd android && fastlane build_staging)
 (cd ios && fastlane build_staging)
 ```
+
+## After generating
+
+* New feature: `dart run tool/new_feature.dart <name> [--item Model]` (from the app root).
+* Secrets: `dart_defines/<flavor>.json`, read through `AppSecrets` (never `.env.*`).
+* Releasing this brick: bump `version:` in `bricks/app_starter/brick.yaml` and merge; CI tags it.

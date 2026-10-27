@@ -4,6 +4,7 @@ import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import '../config/app_configuration.dart';
 import '../errors/app_error.dart';
+import '../telemetry/telemetry.dart';
 
 /// Wired up so a feature can swap its `Fake*Repository` for a real one that
 /// calls through here. Unused by the fake repositories shipped by default --
@@ -78,6 +79,10 @@ class DioApiClient {
         return left(const ConnectionError());
       }
       final error = parseError(e);
+      // 4xx are expected outcomes (bad input, expired session); 5xx are ours to see.
+      if ((e.response?.statusCode ?? 0) >= 500) {
+        await Telemetry.recordError(e, e.stackTrace, reason: '${e.requestOptions.method} ${e.requestOptions.path} -> ${e.response?.statusCode}');
+      }
       if (error.isUnauthenticated) await _onUnauthenticated?.call();
       return left(error);
     }

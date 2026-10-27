@@ -11,6 +11,7 @@ on:
       - "scripts/api_spec.dart"
       - "scripts/eval_api.dart"
       - "scripts/implement_api.dart"
+      - "scripts/tag_brick.dart"
       - ".github/workflows/verify-specs.yml"
 
 jobs:

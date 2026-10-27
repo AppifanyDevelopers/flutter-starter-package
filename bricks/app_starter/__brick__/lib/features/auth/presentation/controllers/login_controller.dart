@@ -49,7 +49,7 @@ class LoginController extends GetxController {
         Get.snackbar('Login failed', error.message);
       },
       (user) async {
-        await _sessionService.saveSession(user.token);
+        await _sessionService.saveSession(user.token, userId: user.id);
         await _sessionService.setRememberedEmail(rememberMe.value ? email : null);
         state.value = TheStates.success;
         await AnalyticsService.logLogin();

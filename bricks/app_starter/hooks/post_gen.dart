@@ -226,6 +226,50 @@ void _wireAndroidNotificationIcon(HookContext context) {
   context.logger.detail('Added the Android notification icon.');
 }
 
+/// `permission_handler` only reports a permission as grantable when the platform
+/// is told the app may ask for it:
+/// * iOS: each permission is compiled in through a `PERMISSION_*` preprocessor
+///   flag in the Podfile (Apple rejects apps that link permission code they
+///   never use), so only the three this app asks for are enabled.
+/// * Android: the manifest must declare them (camera marked non-required so
+///   Play doesn't hide the app from devices without one), plus INTERNET, which
+///   `flutter create` only puts in the debug and profile manifests.
+void _wirePermissions(HookContext context) {
+  final podfile = File('ios/Podfile');
+  var pods = podfile.readAsStringSync();
+  if (!pods.contains('PERMISSION_CAMERA')) {
+    pods = pods.replaceFirstMapped(
+      RegExp(r'( *)flutter_additional_ios_build_settings\(target\)\n'),
+      (m) =>
+          m.group(0)! +
+          '    target.build_configurations.each do |config|\n'
+              "      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['\$(inherited)']\n"
+              "      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] += [\n"
+              "        'PERMISSION_CAMERA=1',\n"
+              "        'PERMISSION_PHOTOS=1',\n"
+              "        'PERMISSION_NOTIFICATIONS=1',\n"
+              '      ]\n'
+              '    end\n',
+    );
+    podfile.writeAsStringSync(pods);
+  }
+
+  final manifest = File('android/app/src/main/AndroidManifest.xml');
+  var xml = manifest.readAsStringSync();
+  if (!xml.contains('android.permission.CAMERA')) {
+    xml = xml.replaceFirst(
+      RegExp(r'<application'),
+      '<uses-permission android:name="android.permission.INTERNET"/>\n'
+          '  <uses-permission android:name="android.permission.CAMERA"/>\n'
+          '  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n'
+          '  <uses-feature android:name="android.hardware.camera" android:required="false"/>\n'
+          '  <application',
+    );
+    manifest.writeAsStringSync(xml);
+  }
+  context.logger.detail('Declared camera/notification permissions for Android and iOS.');
+}
+
 /// `image_picker`'s camera source crashes on iOS without a camera usage
 /// description. (The photo-library string is added by [_wireIosPhotoPermissions].)
 void _wireIosCameraPermission(HookContext context) {
@@ -425,15 +469,21 @@ package_name("$applicationId")
   File('android/fastlane/Fastfile').writeAsStringSync('''
 default_platform(:android)
 
+# Secrets are passed at build time, never committed: if dart_defines/<flavor>.json
+# exists (see dart_defines/README.md) it is handed to the build.
+def dart_defines(flavor)
+  File.exist?("../../dart_defines/#{flavor}.json") ? " --dart-define-from-file=dart_defines/#{flavor}.json" : ""
+end
+
 platform :android do
   desc "Build a staging debug APK"
   lane :build_staging do
-    sh("flutter build apk --debug --flavor staging -t lib/main.dart", chdir: "../..")
+    sh("flutter build apk --debug --flavor staging -t lib/main.dart" + dart_defines("staging"), chdir: "../..")
   end
 
   desc "Build a DI debug APK"
   lane :build_di do
-    sh("flutter build apk --debug --flavor di -t lib/main.dart", chdir: "../..")
+    sh("flutter build apk --debug --flavor di -t lib/main.dart" + dart_defines("di"), chdir: "../..")
   end
 
   desc "Build a production release APK"
@@ -444,7 +494,7 @@ platform :android do
     # or crashes from this build can never be symbolicated.
     sh(
       "flutter build apk --release --flavor production -t lib/main.dart " \\
-      "--obfuscate --split-debug-info=build/debug-info/android-production",
+      "--obfuscate --split-debug-info=build/debug-info/android-production" + dart_defines("production"),
       chdir: "../.."
     )
   end
@@ -461,6 +511,12 @@ app_identifier("$applicationId")
   File('ios/fastlane/Fastfile').writeAsStringSync('''
 default_platform(:ios)
 
+# Secrets are passed at build time, never committed: if dart_defines/<flavor>.json
+# exists (see dart_defines/README.md) it is handed to the build.
+def dart_defines(flavor)
+  File.exist?("../../dart_defines/#{flavor}.json") ? " --dart-define-from-file=dart_defines/#{flavor}.json" : ""
+end
+
 platform :ios do
   desc "Build a staging IPA (unsigned)"
   lane :build_staging do
@@ -470,7 +526,7 @@ platform :ios do
     # or crashes from this build can never be symbolicated.
     sh(
       "flutter build ios --release --flavor staging -t lib/main.dart --no-codesign " \\
-      "--obfuscate --split-debug-info=build/debug-info/ios-staging",
+      "--obfuscate --split-debug-info=build/debug-info/ios-staging" + dart_defines("staging"),
       chdir: "../.."
     )
   end
@@ -478,7 +534,7 @@ platform :ios do
   desc "Build a DI IPA (unsigned)"
   lane :build_di do
     sh(
-      "flutter build ios --release --flavor di -t lib/main.dart --no-codesign",
+      "flutter build ios --release --flavor di -t lib/main.dart --no-codesign" + dart_defines("di"),
       chdir: "../.."
     )
   end
@@ -487,7 +543,7 @@ platform :ios do
   lane :build_production do
     sh(
       "flutter build ios --release --flavor production -t lib/main.dart --no-codesign " \\
-      "--obfuscate --split-debug-info=build/debug-info/ios-production",
+      "--obfuscate --split-debug-info=build/debug-info/ios-production" + dart_defines("production"),
       chdir: "../.."
     )
   end
@@ -907,6 +963,7 @@ Future<void> run(HookContext context) async {
   _wireAndroidImageCropper(context);
   _wireAndroidNotificationIcon(context);
   _wireIosCameraPermission(context);
+  _wirePermissions(context);
   _wireIosGoogleSignIn(context);
   _wireIosAppleSignIn(context);
 

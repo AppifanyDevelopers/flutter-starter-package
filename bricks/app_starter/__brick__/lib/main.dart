@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show appFlavor;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_storage/get_storage.dart';
 
 import 'core/build_variants/environment_entry_points.dart';
+import 'core/build_variants/flavor_resolver.dart';
 import 'core/crash/crashlytics_service.dart';
 import 'core/firebase/firebase_bootstrap.dart';
+import 'core/telemetry/telemetry.dart';
 import 'flavors.dart';
 
-// Set by `--dart-define=FLAVOR=staging` (or `di` / `production`); flutter_flavorizr
-// wires this on each per-flavor run/build configuration it generates.
-const _flavorName = String.fromEnvironment('FLAVOR', defaultValue: 'staging');
+// `--dart-define=FLAVOR=staging` (or `di` / `production`) wins, as the
+// flutter_flavorizr run configurations pass it; otherwise `--flavor <name>`
+// decides. See core/build_variants/flavor_resolver.dart.
+const _flavorOverride = String.fromEnvironment('FLAVOR');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   F.appFlavor = Flavor.values.firstWhere(
-    (flavor) => flavor.name == _flavorName,
+    (flavor) => flavor.name == resolveFlavorName(explicit: _flavorOverride, platformFlavor: appFlavor),
     orElse: () => Flavor.staging,
   );
 
@@ -34,6 +38,7 @@ Future<void> main() async {
   // Firebase.initializeApp() themselves -- see core/firebase/firebase_bootstrap.dart.
   await FirebaseBootstrap.init();
   await CrashlyticsService.init();
+  await Telemetry.setFlavor(F.appFlavor.name);
 
   runApp(
     switch (F.appFlavor) {

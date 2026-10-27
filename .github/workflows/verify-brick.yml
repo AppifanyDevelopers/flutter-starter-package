@@ -55,9 +55,23 @@ jobs:
         working-directory: /tmp/verify-app
         run: flutter test
 
+      # The feature generator's output must compile and pass its own tests --
+      # including a model named `Order`, which clashes with dartz's `Order`
+      # unless the generated imports use `show`.
+      - name: Scaffold a feature with tool/new_feature.dart
+        working-directory: /tmp/verify-app
+        run: |
+          dart run tool/new_feature.dart order_history --item Order
+          flutter analyze
+          flutter test test/order_history_controller_test.dart
+
       - name: Build Android (staging)
         working-directory: /tmp/verify-app
         run: flutter build apk --debug --flavor staging -t lib/main.dart
+
+      - name: Build Android (di)
+        working-directory: /tmp/verify-app
+        run: flutter build apk --debug --flavor di -t lib/main.dart
 
       - name: Build Android (production)
         working-directory: /tmp/verify-app
@@ -66,6 +80,10 @@ jobs:
       - name: Build iOS (staging, no codesign)
         working-directory: /tmp/verify-app
         run: flutter build ios --no-codesign --debug --flavor staging -t lib/main.dart
+
+      - name: Build iOS (di, no codesign)
+        working-directory: /tmp/verify-app
+        run: flutter build ios --no-codesign --debug --flavor di -t lib/main.dart
 
       - name: Build iOS (production, no codesign)
         working-directory: /tmp/verify-app
@@ -83,3 +101,23 @@ jobs:
       - name: Run Fastlane build_staging (iOS)
         working-directory: /tmp/verify-app/ios
         run: fastlane build_staging
+
+  # Releasing is bumping `version:` in bricks/app_starter/brick.yaml: once
+  # everything above passes on main, tag it app_starter-v<version> if that tag
+  # does not exist yet. Idempotent, and never moves an existing tag.
+  tag:
+    needs: generate-and-verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dart-lang/setup-dart@v1
+      - name: Tag the brick version if it is new
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          dart scripts/tag_brick.dart --push

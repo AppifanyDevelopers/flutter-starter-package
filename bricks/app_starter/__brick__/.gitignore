@@ -14,3 +14,7 @@ build/
 
 # Generated natively by `flutter create` in post_gen -- keep out of the
 # brick's own git history, but real per-project checkouts should commit them.
+
+# Build-time secrets -- copy dart_defines/<flavor>.json.example and fill in.
+dart_defines/*.json
+!dart_defines/*.json.example

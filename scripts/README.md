@@ -70,3 +70,13 @@ this repo. For fully unattended/batch generation (no prompts), use
 README's "Advanced: scripted / CI generation" section) and handle the
 icon/Firebase file copying yourself, following the same three destinations
 listed above.
+
+## Other scripts
+
+| Script | Purpose |
+|---|---|
+| `tag_brick.dart` | Tags HEAD `app_starter-v<version>` from `brick.yaml`, once. `--push`, `--dry-run`, `--strict`. CI runs it after the brick verifies on `main`. |
+| `api_spec.dart`, `eval_api.dart`, `implement_api.dart` | The spec-driven API workflow, see `docs/ai/api-workflow/README.md`. |
+
+Inside a generated app, `tool/new_feature.dart` scaffolds a feature (see
+`docs/ARCHITECTURE.md`).

@@ -87,7 +87,7 @@ class SocialAuthService {
     return result.fold(
       (error) => left(error),
       (user) async {
-        await _sessionService.saveSession(user.token);
+        await _sessionService.saveSession(user.token, userId: user.id);
         return right(unit);
       },
     );

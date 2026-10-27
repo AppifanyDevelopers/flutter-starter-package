@@ -109,3 +109,11 @@ intentionally manual -- a name and a brand color can't automate them:
 12. **CI/CD** for whatever pipeline the team adopts to build/ship the
     generated app (the Fastlane lanes above are a natural fit to call from
     one, but aren't a CI pipeline by themselves).
+
+## Secrets and keys
+
+Put third-party keys in `dart_defines/<flavor>.json` (copy the `.example`, it is
+git-ignored) and read them in `lib/core/config/app_secrets.dart`; run with
+`--dart-define-from-file=dart_defines/<flavor>.json`. Never put them in `.env.*`:
+those files ship inside the app. CI needs the same JSON written from your secret
+store before `flutter build`.

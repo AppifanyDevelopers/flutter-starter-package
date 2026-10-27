@@ -46,3 +46,9 @@ mason make app_starter -o . -c vars.json
 
 `post_gen` runs `flutter create` (native android/ios folders), `flutter_flavorizr`
 (staging/di/production flavors), and `flutter_launcher_icons` (app icon) for you.
+
+## After generating
+
+* New feature: `dart run tool/new_feature.dart <name> [--item Model]` (from the app root).
+* Secrets: `dart_defines/<flavor>.json`, read through `AppSecrets` (never `.env.*`).
+* Releasing this brick: bump `version:` in `bricks/app_starter/brick.yaml` and merge; CI tags it.

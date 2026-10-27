@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../permissions/permissions.dart';
+
 enum PhotoSource { camera, gallery, files }
 
 /// Asks where the photo comes from (camera, gallery or files), picks it, then
@@ -70,6 +72,9 @@ Future<PhotoSource?> _askSource() {
 Future<String?> _pick(PhotoSource source) async {
   switch (source) {
     case PhotoSource.camera:
+      // The camera is the only source that needs a permission: the gallery and
+      // file pickers are system UI that grant access per selection.
+      if (!await Permissions.ensure(AppPermission.camera)) return null;
       return (await ImagePicker().pickImage(source: ImageSource.camera))?.path;
     case PhotoSource.gallery:
       return (await ImagePicker().pickImage(source: ImageSource.gallery))?.path;

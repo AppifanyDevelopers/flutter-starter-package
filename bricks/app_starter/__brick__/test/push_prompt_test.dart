@@ -10,7 +10,7 @@ import 'package:{{project_name}}/core/session/session_service.dart';
 
 class _Session extends SessionService {
   @override
-  Future<void> saveSession(String token) async => markLoggedInForTest();
+  Future<void> saveSession(String token, {String? userId}) async => markLoggedInForTest();
 }
 
 class _TokenRepo implements DeviceTokenRepository {

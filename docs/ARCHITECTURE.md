@@ -325,3 +325,58 @@ safe; if you add a dependency from those files back into the app, move that file
 too or leave the file out of `_commonFiles` in `post_gen.dart`. Running the
 script again with an existing monorepo folder adds another app and reuses the
 packages without touching them (including their palette).
+
+## Permissions
+
+`core/permissions/permissions.dart`: `Permissions.ensure(AppPermission.camera)`
+is the one way to ask. Already allowed returns true silently; undecided shows
+the system prompt; denied for good (the OS will not prompt again) shows a
+dialog explaining why with an "Open Settings" button. The platform sits behind
+`PermissionGateway`, so tests fake it. `post_gen` enables only the iOS
+`PERMISSION_CAMERA/PHOTOS/NOTIFICATIONS` Podfile flags (permission_handler
+compiles a permission in only when its flag is set) and declares CAMERA,
+POST_NOTIFICATIONS and INTERNET in the Android manifest (INTERNET is otherwise
+only in the debug/profile manifests). Only the camera source of the photo
+picker needs it; gallery and files are system pickers.
+
+## Secrets
+
+`.env.*` files are bundled as assets, so anything in them can be read out of
+the built app. They hold only `API_BASE_URL` (a test enforces the allow-list).
+Anything else goes through `--dart-define-from-file=dart_defines/<flavor>.json`
+and is read in `core/config/app_secrets.dart`. The real JSON files are
+git-ignored; `<flavor>.json.example` files are committed, and the Fastlane lanes
+pass the file when it exists.
+
+## Which flavor is this build?
+
+`core/build_variants/flavor_resolver.dart`: `--dart-define=FLAVOR=<name>` wins,
+otherwise Flutter's own `--flavor <name>` (`appFlavor`), otherwise `staging`.
+Before this, a CLI `flutter build apk --flavor production` without the define
+silently ran the staging entry point.
+
+## Crash and analytics identity
+
+`core/telemetry/telemetry.dart` is a swappable `TelemetrySink`. The flavor is
+set at boot; `SessionService.saveSession(token, userId:)` identifies the user
+(and stores the id so a restarted app identifies again), `clear()` un-identifies,
+and `DioApiClient` reports 5xx responses with the request that failed (4xx are
+expected outcomes and are not reported). Only the backend's user id is sent,
+never an email or name.
+
+## Scaffolding a feature
+
+`dart run tool/new_feature.dart order_history --item Order` creates the model,
+repository interface, a fake repository, controller (loading / error / empty /
+pull-to-refresh that never shows the shimmer), screen, bindings, an
+AuthGuard-protected route and tests. In a monorepo app it imports the shared
+widgets from `<base>_common`. Generated imports use `show` because dartz also
+exports an `Order`.
+
+## Releasing the brick
+
+Bump `version:` in `bricks/app_starter/brick.yaml` and merge. After the verify
+job passes on `main`, the `tag` job runs `scripts/tag_brick.dart --push`, which
+creates `app_starter-v<version>` once. It never moves a tag; `--strict` exits 2
+if the brick changed under an already-tagged version. `/tag-brick` still tags by
+hand.

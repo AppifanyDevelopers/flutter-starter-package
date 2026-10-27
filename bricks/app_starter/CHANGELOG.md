@@ -2,6 +2,21 @@
 
 ## 0.7.0
 
+- **Permissions helper** (`Permissions.ensure`): one behaviour everywhere, with
+  an "Open Settings" fallback when the OS will not prompt again. The platform
+  config (iOS Podfile flags, Android manifest) is wired by `post_gen`.
+- **Secrets:** `.env.*` are limited to non-secret config (enforced by a test);
+  secrets use `dart_defines/<flavor>.json` and `AppSecrets`, passed by Fastlane
+  when present.
+- **Crash/analytics identity:** flavor tag, user id on login/signup/social and
+  after restart, cleared on logout, 5xx responses reported.
+- **Flavor selection fix:** `flutter build --flavor production` without
+  `--dart-define=FLAVOR` used to run the staging entry point; `--flavor` now
+  decides unless the define says otherwise.
+- **`tool/new_feature.dart`** scaffolds a feature in the app's conventions.
+- Releases: a `tag` job creates `app_starter-v<version>` after the brick
+  verifies on `main` (`scripts/tag_brick.dart`).
+
 - **Colours:** new `AppPalette` (neutral, grey and warning ramps, defaults from
   rentsy) drives text, hint and border colours. `scripts/create_app.dart` asks
   for an optional `color.xml` and reads only `warning*`, `neutral*` and `grey*`.

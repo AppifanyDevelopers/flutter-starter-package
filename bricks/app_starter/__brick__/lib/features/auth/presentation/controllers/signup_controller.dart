@@ -164,7 +164,7 @@ class SignupController extends GetxController {
         Get.snackbar('Signup failed', error.message);
       },
       (user) async {
-        await Get.find<SessionService>().saveSession(user.token);
+        await Get.find<SessionService>().saveSession(user.token, userId: user.id);
         passwordState.value = TheStates.success;
         await AnalyticsService.logSignUp();
         Get.offAllNamed(AppRoutes.dashboard);
