@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:image/image.dart' as img;
 import 'package:mason/mason.dart';
 
 Future<void> _run(
@@ -189,6 +190,143 @@ void _wireAndroidImageCropper(HookContext context) {
   context.logger.detail('Added UCropActivity to AndroidManifest.xml.');
 }
 
+/// A monochrome status-bar icon for Android notifications (white on
+/// transparent, as Android requires) plus Firebase's default-icon/colour
+/// metadata, so pushes shown by the system while the app is closed use it too.
+/// iOS has no custom notification icon: it always shows the app icon.
+void _wireAndroidNotificationIcon(HookContext context) {
+  final drawable = File('android/app/src/main/res/drawable/ic_stat_notification.xml');
+  drawable.parent.createSync(recursive: true);
+  drawable.writeAsStringSync('''<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.89,2 2,2zM18,16v-5c0,-3.07 -1.64,-5.64 -4.5,-6.32V4c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5v0.68C7.63,5.36 6,7.92 6,11v5l-2,2v1h16v-1l-2,-2z" />
+</vector>
+''');
+
+  final manifest = File('android/app/src/main/AndroidManifest.xml');
+  var contents = manifest.readAsStringSync();
+  if (!contents.contains('default_notification_icon')) {
+    contents = contents.replaceFirst(
+      '</application>',
+      '        <meta-data\n'
+          '            android:name="com.google.firebase.messaging.default_notification_icon"\n'
+          '            android:resource="@drawable/ic_stat_notification" />\n'
+          '    </application>',
+    );
+    manifest.writeAsStringSync(contents);
+  }
+
+  context.logger.detail('Added the Android notification icon.');
+}
+
+/// `image_picker`'s camera source crashes on iOS without a camera usage
+/// description. (The photo-library string is added by [_wireIosPhotoPermissions].)
+void _wireIosCameraPermission(HookContext context) {
+  final infoPlist = File('ios/Runner/Info.plist');
+  var contents = infoPlist.readAsStringSync();
+  if (!contents.contains('NSCameraUsageDescription')) {
+    contents = contents.replaceFirst(
+      '</dict>\n</plist>',
+      '\t<key>NSCameraUsageDescription</key>\n'
+          '\t<string>Used to let you take a profile photo.</string>\n'
+          '</dict>\n</plist>',
+    );
+    infoPlist.writeAsStringSync(contents);
+  }
+}
+
+/// Draws a diagonal corner ribbon at the top-left of [source] and saves it to
+/// [target]. White text on a coloured band, so a staging/DI build is obvious
+/// on the home screen.
+void _drawIconRibbon({
+  required String source,
+  required String target,
+  required String label,
+  required img.Color color,
+}) {
+  final icon = img.decodePng(File(source).readAsBytesSync())!;
+  final s = icon.width;
+  final w = s.toDouble();
+
+  // The band: from the top edge to the left edge, cut at 45 degrees.
+  img.fillPolygon(
+    icon,
+    vertices: [
+      img.Point(0, (w * 0.30).round()),
+      img.Point((w * 0.30).round(), 0),
+      img.Point((w * 0.62).round(), 0),
+      img.Point(0, (w * 0.62).round()),
+    ],
+    color: color,
+  );
+
+  // Text: render small, trim, scale to fit the band, rotate, centre on it.
+  final text = img.Image(width: 40 * label.length + 40, height: 90, numChannels: 4);
+  img.drawString(text, label, font: img.arial48, x: 20, y: 20, color: img.ColorRgb8(255, 255, 255));
+  var trimmed = img.trim(text, mode: img.TrimMode.transparent);
+  // Fit the band: at most 34% of the icon wide and 8% tall, so short labels
+  // like "DI" don't balloon.
+  final scale = [w * 0.34 / trimmed.width, w * 0.08 / trimmed.height].reduce((a, b) => a < b ? a : b);
+  trimmed = img.copyResize(trimmed, width: (trimmed.width * scale).round(), interpolation: img.Interpolation.cubic);
+  final rotated = img.copyRotate(trimmed, angle: -45, interpolation: img.Interpolation.cubic);
+  img.compositeImage(
+    icon,
+    rotated,
+    dstX: (w * 0.2275 - rotated.width / 2).round(),
+    dstY: (w * 0.2275 - rotated.height / 2).round(),
+  );
+
+  File(target).writeAsBytesSync(img.encodePng(icon));
+}
+
+/// Per-flavor launcher icons: staging gets a red STAGING ribbon, DI a blue DI
+/// ribbon, production keeps the plain icon. `flutter_launcher_icons` picks up
+/// the `flutter_launcher_icons-<flavor>.yaml` files and writes each flavor's
+/// own Android/iOS icon set. Must run before that tool does.
+void _writeFlavorIcons(HookContext context) {
+  // A real icon supplied by scripts/create_app.dart replaces the placeholder
+  // before any ribbon copy is drawn from it.
+  final customIcon = Platform.environment['APP_STARTER_ICON'];
+  if (customIcon != null && customIcon.isNotEmpty && File(customIcon).existsSync()) {
+    File(customIcon).copySync('assets/logo/icon.png');
+  }
+
+  const flavors = {
+    'staging': ('STAGING', 0xFFD32F2F),
+    'di': ('DI', 0xFF1976D2),
+  };
+  for (final entry in flavors.entries) {
+    final (label, argb) = entry.value;
+    _drawIconRibbon(
+      source: 'assets/logo/icon.png',
+      target: 'assets/logo/icon_${entry.key}.png',
+      label: label,
+      color: img.ColorRgba8((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF, 255),
+    );
+    File('flutter_launcher_icons-${entry.key}.yaml').writeAsStringSync('''
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo/icon_${entry.key}.png"
+''');
+  }
+  // Production keeps the plain icon, but still needs its own set: flavorizr
+  // points iOS at `AppIcon-<flavor>`, so `AppIcon-production` must exist.
+  File('flutter_launcher_icons-production.yaml').writeAsStringSync('''
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo/icon.png"
+''');
+  context.logger.detail('Drew the STAGING and DI launcher icon ribbons.');
+}
+
 /// Google Sign-In on iOS needs a URL scheme (the reversed client ID) and a
 /// `GIDClientID` key in `Info.plist`. The *real* values only exist once a
 /// developer has their actual `GoogleService-Info.plist` (added after
@@ -254,7 +392,7 @@ void _wireIosAppleSignIn(HookContext context) {
 ''');
   }
 
-  for (final flavor in ['staging', 'production']) {
+  for (final flavor in ['staging', 'di', 'production']) {
     for (final buildMode in ['Debug', 'Release', 'Profile']) {
       final xcconfig = File('ios/Flutter/$flavor$buildMode.xcconfig');
       if (!xcconfig.existsSync()) continue;
@@ -292,6 +430,11 @@ platform :android do
     sh("flutter build apk --debug --flavor staging -t lib/main.dart", chdir: "../..")
   end
 
+  desc "Build a DI debug APK"
+  lane :build_di do
+    sh("flutter build apk --debug --flavor di -t lib/main.dart", chdir: "../..")
+  end
+
   desc "Build a production release APK"
   lane :build_production do
     # --obfuscate strips identifiers from crash reports -- --split-debug-info
@@ -309,7 +452,7 @@ end
 
   Directory('ios/fastlane').createSync(recursive: true);
   File('ios/fastlane/Appfile').writeAsStringSync('''
-# Production bundle id; staging is "$applicationId.staging".
+# Production bundle id; staging is "$applicationId.staging", DI is "$applicationId.di".
 # See ../../docs/POST_GEN_MANUAL_STEPS.md before adding deploy lanes -- an
 # apple_id and team need to go here once you do.
 app_identifier("$applicationId")
@@ -327,6 +470,14 @@ platform :ios do
     sh(
       "flutter build ios --release --flavor staging -t lib/main.dart --no-codesign " \\
       "--obfuscate --split-debug-info=build/debug-info/ios-staging",
+      chdir: "../.."
+    )
+  end
+
+  desc "Build a DI IPA (unsigned)"
+  lane :build_di do
+    sh(
+      "flutter build ios --release --flavor di -t lib/main.dart --no-codesign",
       chdir: "../.."
     )
   end
@@ -364,7 +515,7 @@ void _alignAndroidIdentifiers(HookContext context, String applicationId) {
           // flavor ids (already exact) are left alone.
           .replaceAllMapped(RegExp(r'applicationId\s*=\s*"([^"]*)"'), (m) {
         final value = m.group(1)!;
-        return value == applicationId || value == '$applicationId.staging'
+        return value == applicationId || value == '$applicationId.staging' || value == '$applicationId.di'
             ? m.group(0)!
             : 'applicationId = "$applicationId"';
       }),
@@ -407,7 +558,9 @@ void _alignIosBundleIds(HookContext context, String applicationId) {
     (m) {
       final value = m.group(1)!;
       if (value.endsWith('.RunnerTests')) return 'PRODUCT_BUNDLE_IDENTIFIER = $applicationId.RunnerTests;';
-      if (value == applicationId || value == '$applicationId.staging') return m.group(0)!;
+      if (value == applicationId || value == '$applicationId.staging' || value == '$applicationId.di') {
+        return m.group(0)!;
+      }
       return 'PRODUCT_BUNDLE_IDENTIFIER = $applicationId;';
     },
   );
@@ -471,10 +624,14 @@ Future<void> run(HookContext context) async {
   _wireIosDeploymentTarget(context);
   _wireIosPhotoPermissions(context);
   _wireAndroidImageCropper(context);
+  _wireAndroidNotificationIcon(context);
+  _wireIosCameraPermission(context);
   _wireIosGoogleSignIn(context);
   _wireIosAppleSignIn(context);
 
-  // 7. Stamp app icons from the placeholder logo shipped in assets/logo/.
+  // 7. Stamp app icons from the placeholder logo shipped in assets/logo/,
+  //    with a ribbon on the staging and DI flavors' copies.
+  _writeFlavorIcons(context);
   await _run(context, 'dart', ['run', 'flutter_launcher_icons']);
 
   // 8. Final sync pass after native config changes.

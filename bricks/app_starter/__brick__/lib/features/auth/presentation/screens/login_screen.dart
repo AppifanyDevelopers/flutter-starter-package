@@ -25,10 +25,8 @@ class LoginScreen extends GetView<LoginController> {
             const SizedBox(height: 4),
             const Text('Sign in to continue. Demo login: demo@example.com / password123'),
             const SizedBox(height: 24),
-            AppTextFormField(
-              label: 'Email',
+            AppTextFormField.email(
               controller: controller.emailController,
-              keyboardType: TextInputType.emailAddress,
               validator: Validators.email(),
             ),
             const SizedBox(height: 16),
@@ -37,7 +35,9 @@ class LoginScreen extends GetView<LoginController> {
                 label: 'Password',
                 controller: controller.passwordController,
                 obscureText: controller.obscurePassword.value,
-                validator: Validators.password(),
+                autofillHints: const [AutofillHints.password],
+                textInputAction: TextInputAction.done,
+                validator: Validators.requiredPassword(),
                 suffixIcon: IconButton(
                   icon: Icon(controller.obscurePassword.value ? Icons.visibility_off : Icons.visibility),
                   onPressed: controller.toggleObscurePassword,

@@ -26,9 +26,13 @@ class FakeAuthRepository implements AuthRepository {
     required String password,
     required String phone,
     required DateTime dateOfBirth,
+    required String verificationToken,
     String? photoPath,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 800));
+    if (verificationToken.isEmpty) {
+      return left(const InternalAppError(message: 'Email not verified.'));
+    }
     final normalized = email.toLowerCase();
     if (_registeredEmails.contains(normalized)) {
       return left(const InternalAppError(message: 'An account with this email already exists.'));
@@ -66,6 +70,15 @@ class FakeAuthRepository implements AuthRepository {
   Future<Either<AppError, Unit>> sendVerificationOtp({required String email}) async {
     await Future<void>.delayed(const Duration(milliseconds: 600));
     return right(unit);
+  }
+
+  @override
+  Future<Either<AppError, String>> verifySignupOtp({required String email, required String otp}) async {
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    if (otp != '1234') {
+      return left(const InternalAppError(message: 'Invalid or expired code.'));
+    }
+    return right('fake-verification-token');
   }
 
   @override

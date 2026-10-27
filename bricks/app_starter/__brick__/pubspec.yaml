@@ -29,7 +29,6 @@ dependencies:
   get_storage: ^2.1.1
 
   # Forms
-  form_validator: ^2.1.1
 
   # Loading states
   shimmer: ^3.0.0
@@ -60,6 +59,7 @@ dependencies:
   # Crops the picked photo before use; needs a manifest activity on Android,
   # already wired into post_gen.dart -- see docs/ARCHITECTURE.md.
   image_cropper: ^12.2.1
+  file_picker: ^10.3.0
 
   # Powers the offline banner (lib/core/connectivity/connectivity_service.dart)
   connectivity_plus: ^7.3.1
@@ -83,6 +83,7 @@ flutter:
   assets:
     - .env.staging
     - .env.production
+    - .env.di
 
 flutter_launcher_icons:
   android: true

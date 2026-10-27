@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../connectivity/connectivity_service.dart';
 import '../network/dio_api_client.dart';
+import '../notifications/device_token_repository.dart';
 import '../routes/app_routes.dart';
 import '../session/session_service.dart';
 import '../theme/theme_controller.dart';
@@ -15,6 +16,8 @@ class AppInitializer {
     Get
       ..put(session, permanent: true)
       ..put(ThemeController(), permanent: true)
+      // TODO(swap-backend): replace with a real Dio DeviceTokenRepository.
+      ..put<DeviceTokenRepository>(FakeDeviceTokenRepository(), permanent: true)
       ..put(Dio(), permanent: true)
       ..put(
         DioApiClient(

@@ -2,6 +2,29 @@
 
 ## 0.7.0
 
+- **New `di` flavor** next to `staging` and `production`: id `<application_id>.di`,
+  `.env.di` (starts on the staging API URL), app name "<App> DI", Fastlane
+  `build_di` lanes. The guided script now requires all three Android packages in
+  `google-services.json`.
+- **Flavor ribbon on the launcher icon and in-app:** red STAGING and blue DI at
+  the top left (production none), drawn by `post_gen` and written as per-flavor
+  icon sets. Fixes a latent iOS bug where production pointed at a missing
+  `AppIcon-production` asset set.
+- **Signup is a 3-step stepper:** basic details -> confirm email code -> password
+  (account created last, with a verification token). Needs a backend change, see
+  `docs/ai/api-workflow/BACKEND_CONTRACT.md`. `AuthRepository.signup` gains a
+  required `verificationToken`, plus new `verifySignupOtp`.
+- **Forms:** validation only on submit, whitespace-only input is rejected
+  everywhere, name/email/phone keyboard types (email blocks spaces, phone blocks
+  letters), keyboard hides on every button press and on tapping blank space,
+  cursor/selection use the primary colour, and password creation shows a live
+  rule checklist (8+ chars, capital, number, special, no spaces; enforced).
+  `form_validator` is replaced by in-house validators.
+- **Notifications:** Android status-bar icon, and a post-login "Turn on / Later"
+  dialog that asks the OS for permission only after "Turn on" (it used to ask at
+  app start). iOS shows the app icon, as the system requires.
+- **Photos:** the picker offers camera, gallery or files, then crops.
+
 - `scripts/create_app.dart` asks for a parent folder and creates
   `<parent>/<project_name>/` itself (it used to write the project's files
   straight into whatever folder you typed, e.g. the Desktop). It refuses a

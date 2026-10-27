@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/keyboard.dart';
 import 'app_loading_widget.dart';
 
 /// Primary CTA button used across the app, with a built-in loading spinner
@@ -31,7 +32,14 @@ class AppOutlinedButton extends StatelessWidget {
         ? const AppLoadingWidget.small(color: Colors.white)
         : Text(label);
 
-    final onTap = isLoading ? null : onPressed;
+    final handler = onPressed;
+    // Every Continue/Save/Verify press dismisses the keyboard first.
+    final VoidCallback? onTap = isLoading || handler == null
+        ? null
+        : () {
+            hideKeyboard();
+            handler();
+          };
 
     if (outline) {
       return OutlinedButton(onPressed: onTap, child: child);

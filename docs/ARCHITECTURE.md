@@ -102,21 +102,27 @@ unconditionally), and iOS's minimum deployment target (bumped from
 
 ## Signup wizard + OTP
 
-Signup is a shared `SignupController` driving three screens, the same
-"one controller across several screens" shape as `ForgotPasswordController`:
-1. `SignupScreen` (account: name/email/password) -- local validation only,
-   `goToDetails()` just navigates, no repository call yet.
-2. `SignupDetailsScreen` (phone, date of birth via `showDatePicker`, an
-   optional photo via the shared `AvatarPicker`/`image_picker`) --
-   `submitDetails()` calls `AuthRepository.signup(...)`, stashes the
-   returned `User` in a private field, then calls `sendVerificationOtp`
-   and navigates to the OTP screen.
-3. `SignupOtpScreen` -- `verifyOtp()` reuses the same `AuthRepository.verifyOtp`
-   forgot-password already uses, then finally calls
-   `SessionService.saveSession` and routes to the dashboard.
+Signup is a shared `SignupController` driving three screens (a `StepIndicator`
+shows "Step N of 3"), the same "one controller across several screens" shape
+as `ForgotPasswordController`:
+1. `SignupScreen` (basic details: name, email, phone, date of birth, optional
+   photo) -- `submitDetails()` validates, then calls
+   `AuthRepository.sendVerificationOtp` and moves on. No account exists yet.
+2. `SignupOtpScreen` -- `verifyOtp()` calls `AuthRepository.verifySignupOtp`,
+   which returns a single-use *verification token* (stashed in the
+   controller). Resend is available.
+3. `SignupPasswordScreen` -- `createAccount()` validates the password
+   (8+ chars, a capital, a number, a special character, no spaces; a live
+   `PasswordRulesChecklist` shows progress) and only then calls
+   `AuthRepository.signup(..., verificationToken:)`, saves the session and
+   routes to the dashboard.
 
-The session is deliberately not created until step 3 succeeds -- an
-unverified signup shouldn't be able to reach authenticated routes.
+The account is deliberately created last, and only for an email whose code was
+verified -- an unverified signup can't reach authenticated routes, and nobody
+can register an email they don't own. This needs a backend that issues the
+verification token at step 2 and requires it at registration (the reference
+backend's `register` currently takes the password directly; see
+`docs/ai/api-workflow/BACKEND_CONTRACT.md`).
 `FakeAuthRepository.signup` accepts phone/DOB/photo (like a real endpoint
 would) but doesn't persist them into `FakeProfileRepository`'s separate
 in-memory profile; keeping the two fakes in sync would add real complexity
@@ -187,14 +193,21 @@ recognizable regardless of a client's brand color. `AppSnackbar.success(...)`
 is a thin wrapper so success feedback looks consistent everywhere instead of
 each call site restyling `Get.snackbar` itself.
 
-## Staging banner
+## Flavors and the environment banner
 
-`MyApp` uses `GetMaterialApp`'s `builder:` param to wrap routed content in a
-`Banner` reading "STAGING", shown only when
-`AppConfiguration.current.environment == AppEnvironment.staging`. This is
-separate from (and simpler than) flutter_flavorizr's own ribbon-banner
-feature, which is deliberately excluded from the generator (see below) since
-it needs a network download during generation.
+Three flavors: `production`, `staging` and `di` (flavorizr ids `<id>`,
+`<id>.staging`, `<id>.di`). `di` reads `.env.di`, which starts out pointing at
+the staging API -- change `API_BASE_URL` in it when `di` gets its own backend.
+
+`MyApp` wraps routed content in `EnvironmentBanner`: a red "STAGING" or blue
+"DI" corner ribbon at the top left, none on production. The same ribbon is
+drawn onto each flavor's launcher icon by `post_gen.dart` (via the `image`
+package; production keeps the plain icon), and `flutter_launcher_icons`
+writes a separate icon set per flavor from the generated
+`flutter_launcher_icons-<flavor>.yaml` files. All of this is separate from
+(and simpler than) flutter_flavorizr's own ribbon-banner feature, which is
+deliberately excluded from the generator (see below) since it needs a network
+download during generation.
 
 ## Fastlane
 
@@ -218,7 +231,7 @@ is a bigger behavior change than "harden the lanes" calls for.
 
 `lib/core/utils/pick_and_crop_image.dart` is one function,
 `pickAndCropProfilePhoto()`, used identically by the signup wizard's photo
-step and Edit Profile's avatar picker: pick from the gallery, then crop with
+step and Edit Profile's avatar picker: ask for a source (camera, gallery or files), then crop with
 `image_cropper` (original/square aspect presets -- no forced circle-crop UI,
 since the result is displayed inside a circular `AvatarPicker` regardless).
 Bounded to 800x800 at 70% JPEG quality via `cropImage`'s own

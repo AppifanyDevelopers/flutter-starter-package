@@ -8,6 +8,7 @@ class AppConfiguration {
   AppConfiguration._({required this.environment});
 
   static final AppConfiguration staging = AppConfiguration._(environment: AppEnvironment.staging);
+  static final AppConfiguration di = AppConfiguration._(environment: AppEnvironment.di);
   static final AppConfiguration production = AppConfiguration._(environment: AppEnvironment.production);
 
   /// Set once in `main.dart` after `dotenv.load` resolves the active flavor.

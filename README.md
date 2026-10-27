@@ -6,7 +6,7 @@ then phone/DOB/photo) with email OTP verification, Forgot Password (also
 OTP-based), a Dashboard, and a Settings screen (Appearance/dark mode, FAQ
 with search, Contact Us, Terms & Conditions, Privacy Policy, Notification
 Settings, Change Password, Edit Profile, Delete Account, Logout, app
-version) -- wired with GetX, staging/production flavors, `.env` config, an
+version) -- wired with GetX, staging/di/production flavors, `.env` config, an
 in-app update prompt, Firebase push notifications with tap-to-navigate
 (inert until a real Firebase project is added), and build-only Fastlane
 lanes. Everything else runs against an in-memory fake backend by default,
@@ -86,7 +86,7 @@ Note: `-c` takes a path to a JSON file, not inline JSON -- `mason make ... -c '{
 
 `post_gen` automatically runs `flutter create` (native android/ios
 folders), scaffolds Fastlane, wires Firebase's native config, runs
-`flutter_flavorizr` (staging/production flavors), and
+`flutter_flavorizr` (staging/di/production flavors), and
 `flutter_launcher_icons` (app icon) for you.
 
 ## Architecture

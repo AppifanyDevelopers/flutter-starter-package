@@ -12,8 +12,8 @@ intentionally manual -- a name and a brand color can't automate them:
    configured -- `Firebase.initializeApp()` fails silently and all three
    become no-ops until you:
    - Create a Firebase project and Android/iOS apps in it matching this
-     project's applicationId/bundleId per flavor (`{{application_id}}`
-     and `{{application_id}}.staging`).
+     project's applicationId/bundleId per flavor (`{{application_id}}`,
+     `{{application_id}}.staging` and `{{application_id}}.di`).
    - Download `google-services.json` into `android/app/` (the Google
      Services Gradle plugin only activates once this file exists).
    - Download `GoogleService-Info.plist`, add it to `ios/Runner/` **via
@@ -72,7 +72,7 @@ intentionally manual -- a name and a brand color can't automate them:
    builds are unaffected.
 6. **App Store Connect / Play Console** app records, bundle id
    registration, and listing metadata.
-7. **Real API base URLs.** `.env.staging`/`.env.production` are filled
+7. **Real API base URLs.** `.env.staging`/`.env.di`/`.env.production` are filled
    from the vars supplied at generation time -- update them once a real
    backend exists.
 8. **Real store URLs for the update prompt.** `AppUpdateService` is called

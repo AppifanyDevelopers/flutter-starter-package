@@ -21,6 +21,11 @@ class PushNotificationService {
 
   static final _localNotifications = FlutterLocalNotificationsPlugin();
 
+  /// Monochrome status-bar icon (`android/app/src/main/res/drawable/
+  /// ic_stat_notification.xml`, added by post_gen). iOS has no custom
+  /// notification icon: the system always uses the app icon.
+  static const _androidSmallIcon = 'ic_stat_notification';
+
   static const _androidChannelId = 'default_channel';
   static const _androidChannelName = 'General';
 
@@ -31,7 +36,7 @@ class PushNotificationService {
 
     await _localNotifications.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: AndroidInitializationSettings(_androidSmallIcon),
         iOS: DarwinInitializationSettings(
           requestAlertPermission: false,
           requestSoundPermission: false,
@@ -41,12 +46,26 @@ class PushNotificationService {
       onDidReceiveNotificationResponse: (response) => _navigateToRoute(response.payload),
     );
 
-    await FirebaseMessaging.instance.requestPermission();
-
     FirebaseMessaging.onMessage.listen(_showForegroundNotification);
     FirebaseMessaging.onMessageOpenedApp.listen(
       (message) => _navigateToRoute(message.data['route'] as String?),
     );
+  }
+
+  /// Asks the OS for notification permission (Android 13+ and iOS). Only
+  /// call this from a screen that has already explained why -- see
+  /// `PushPermissionPrompt`. Returns whether notifications are allowed.
+  static Future<bool> requestPermission() async {
+    if (!FirebaseBootstrap.isAvailable) return false;
+    final settings = await FirebaseMessaging.instance.requestPermission();
+    return settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
+  }
+
+  /// The FCM registration token, or null when Firebase isn't configured.
+  static Future<String?> getToken() async {
+    if (!FirebaseBootstrap.isAvailable) return null;
+    return FirebaseMessaging.instance.getToken();
   }
 
   /// Call once after the app's first route has been decided, to redirect
@@ -69,7 +88,7 @@ class PushNotificationService {
       title: notification.title,
       body: notification.body,
       notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(_androidChannelId, _androidChannelName),
+        android: AndroidNotificationDetails(_androidChannelId, _androidChannelName, icon: _androidSmallIcon),
         iOS: DarwinNotificationDetails(),
       ),
       payload: message.data['route'] as String?,

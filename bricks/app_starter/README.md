@@ -4,7 +4,7 @@ A Mason brick that generates a fully functional Flutter app: Login (with
 Remember me), Signup, Forgot Password, a Dashboard, and a Settings screen
 (Appearance/dark mode, FAQ, Contact Us, Terms & Conditions, Privacy Policy,
 Notification Settings, Change Password, Edit Profile, Delete Account,
-Logout, app version) -- wired with GetX, staging/production flavors, `.env`
+Logout, app version) -- wired with GetX, staging/di/production flavors, `.env`
 config, an in-app update prompt, and Firebase push notifications with
 tap-to-navigate (inert until a real Firebase project is added -- see
 `docs/POST_GEN_MANUAL_STEPS.md`). All other data comes from an in-memory
@@ -45,4 +45,4 @@ mason make app_starter -o . -c vars.json
 ```
 
 `post_gen` runs `flutter create` (native android/ios folders), `flutter_flavorizr`
-(staging/production flavors), and `flutter_launcher_icons` (app icon) for you.
+(staging/di/production flavors), and `flutter_launcher_icons` (app icon) for you.

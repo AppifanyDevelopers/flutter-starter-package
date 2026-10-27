@@ -7,7 +7,7 @@ import 'core/crash/crashlytics_service.dart';
 import 'core/firebase/firebase_bootstrap.dart';
 import 'flavors.dart';
 
-// Set by `--dart-define=FLAVOR=staging` (or `production`); flutter_flavorizr
+// Set by `--dart-define=FLAVOR=staging` (or `di` / `production`); flutter_flavorizr
 // wires this on each per-flavor run/build configuration it generates.
 const _flavorName = String.fromEnvironment('FLAVOR', defaultValue: 'staging');
 
@@ -20,7 +20,11 @@ Future<void> main() async {
   );
 
   await dotenv.load(
-    fileName: F.appFlavor == Flavor.production ? '.env.production' : '.env.staging',
+    fileName: switch (F.appFlavor) {
+      Flavor.production => '.env.production',
+      Flavor.di => '.env.di',
+      Flavor.staging => '.env.staging',
+    },
   );
   await GetStorage.init();
 
@@ -32,6 +36,10 @@ Future<void> main() async {
   await CrashlyticsService.init();
 
   runApp(
-    F.appFlavor == Flavor.production ? const ProductionEntryPoint() : const StagingEntryPoint(),
+    switch (F.appFlavor) {
+      Flavor.production => const ProductionEntryPoint(),
+      Flavor.di => const DiEntryPoint(),
+      Flavor.staging => const StagingEntryPoint(),
+    },
   );
 }

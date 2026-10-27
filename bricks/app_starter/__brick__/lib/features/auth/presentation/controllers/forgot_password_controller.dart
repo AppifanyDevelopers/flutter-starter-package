@@ -15,6 +15,7 @@ class ForgotPasswordController extends GetxController {
   final emailController = TextEditingController();
   final emailState = TheStates.initial.obs;
 
+  final otpFormKey = GlobalKey<FormState>();
   final otpController = TextEditingController();
   final otpState = TheStates.initial.obs;
 
@@ -41,6 +42,8 @@ class ForgotPasswordController extends GetxController {
   }
 
   Future<void> verifyOtp() async {
+    if (!(otpFormKey.currentState?.validate() ?? false)) return;
+
     otpState.value = TheStates.loading;
     final result = await _repository.verifyOtp(
       email: emailController.text.trim(),

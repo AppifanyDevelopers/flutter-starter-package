@@ -49,6 +49,24 @@ place the generator learns the wire format; per-endpoint samples live in
   minutes per IP (`X-RateLimit-*`, `Retry-After` on 429).
 - A password reset invalidates every earlier token (`401 unauthenticated`).
 
+## Signup flow the app now expects (backend change required)
+
+The app signs up in three steps: basic details, confirm the emailed code,
+then choose a password. The reference backend's `POST /auth/register` takes
+the password in one call and has no signup OTP, so these must be added there:
+
+1. `POST /auth/register/otp/send` `{email}` -> 200, emails a code. (App constant:
+   `AppEndpoints.sendVerificationOtp`.)
+2. `POST /auth/register/otp/verify` `{email, otp}` -> 200
+   `data.verification_token` (single use, short lived). Reuse the existing OTP
+   error codes (`otp_invalid`, `otp_expired`, ...). (`AppEndpoints.verifyOtp`.)
+3. `POST /auth/register` gains a required `verification_token` and must reject
+   an email whose token is missing, expired or for a different email. It
+   returns the same body as login (token + user).
+
+Until then the app runs this flow against `FakeAuthRepository`; the real
+`DioAuthRepository` should call these three endpoints in order.
+
 ## Known quirks worth remembering
 
 - `password/forgot` and `password/resend` return the same 200 for unknown

@@ -21,10 +21,9 @@ class ForgotPasswordScreen extends GetView<ForgotPasswordController> {
           children: [
             const Text('Enter your email and we\'ll send you a verification code.'),
             const SizedBox(height: 16),
-            AppTextFormField(
-              label: 'Email',
+            AppTextFormField.email(
               controller: controller.emailController,
-              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.done,
               validator: Validators.email(),
             ),
             const SizedBox(height: 24),

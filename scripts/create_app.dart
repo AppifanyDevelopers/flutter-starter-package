@@ -77,7 +77,7 @@ Future<void> main() async {
   );
 
   stdout.writeln('\n--- Firebase (required: push, Crashlytics, Analytics, Google Sign-In) ---');
-  stdout.writeln('Create the Android apps for "$applicationId" AND "$applicationId.staging",');
+  stdout.writeln('Create the Android apps for "$applicationId", "$applicationId.staging" AND "$applicationId.di",');
   stdout.writeln('enable the Google sign-in provider, then download both files.');
   final googleServicesPath = _askRequiredFile(
     'google-services.json (Android Firebase config)',
@@ -137,13 +137,10 @@ Future<void> main() async {
     'mason',
     ['make', 'app_starter', '-o', outputDir.path, '-c', varsFile.path, '--on-conflict', 'overwrite'],
     workingDirectory: repoRoot,
+    // Read by the brick's post_gen hook, which uses it as the base for the
+    // launcher icons (including the STAGING/DI ribbon copies).
+    environment: {if (iconPath != null) 'APP_STARTER_ICON': File(iconPath).absolute.path},
   );
-
-  if (iconPath != null) {
-    stdout.writeln('\nApplying your app icon...');
-    File(iconPath).copySync('${outputDir.path}/assets/logo/icon.png');
-    await _runInherited('dart', ['run', 'flutter_launcher_icons'], workingDirectory: outputDir.path);
-  }
 
   stdout.writeln('\nCopying google-services.json into android/app/...');
   Directory('${outputDir.path}/android/app').createSync(recursive: true);
@@ -235,11 +232,13 @@ Future<void> _runInherited(
   String executable,
   List<String> args, {
   required String workingDirectory,
+  Map<String, String>? environment,
 }) async {
   final process = await Process.start(
     executable,
     args,
     workingDirectory: workingDirectory,
+    environment: environment,
     runInShell: true,
     mode: ProcessStartMode.inheritStdio,
   );
@@ -287,8 +286,8 @@ String _askRequiredFile(
   }
 }
 
-/// Both flavors build from this one file, so it must list the production AND
-/// staging package, and Google sign-in must be enabled (a type-3 OAuth client).
+/// All three flavors build from this one file, so it must list the production,
+/// staging AND di packages, and Google sign-in must be enabled (a type-3 OAuth client).
 String? _validateGoogleServices(String path, String applicationId) {
   final Map<String, dynamic> json;
   try {
@@ -303,8 +302,7 @@ String? _validateGoogleServices(String path, String applicationId) {
         (c['client_info'] as Map)['android_client_info']['package_name'] as String,
   };
   final production = applicationId;
-  final staging = '$production.staging';
-  final missing = [production, staging].where((p) => !packages.contains(p)).toList();
+  final missing = [production, '$production.staging', '$production.di'].where((p) => !packages.contains(p)).toList();
   if (missing.isNotEmpty) {
     return 'This file lists ${packages.isEmpty ? 'no Android apps' : packages.join(', ')} but is missing '
         '${missing.join(' and ')}. Add those Android apps in Firebase and download the file again.';
@@ -337,17 +335,13 @@ String? _validatePlist(String path, String applicationId) {
   }
   final production = applicationId;
   final bundleId = values['BUNDLE_ID']!;
-  if (bundleId != production && bundleId != '$production.staging') {
+  if (![production, '$production.staging', '$production.di'].contains(bundleId)) {
     return 'BUNDLE_ID is "$bundleId" but this project uses $production (production) / '
-        '$production.staging (staging). Add a matching iOS app in Firebase and re-download.';
+        '$production.staging (staging) / $production.di (di). Add a matching iOS app in Firebase '
+        'and re-download.';
   }
-  if (bundleId != production) {
-    stdout.writeln('  Note: this plist is for the staging bundle id only; the production flavor '
-        'needs its own GoogleService-Info.plist before release.');
-  } else {
-    stdout.writeln('  Note: this plist is for the production bundle id; the staging flavor '
-        '($production.staging) needs its own plist to use Firebase.');
-  }
+  stdout.writeln('  Note: this plist is for $bundleId only. The other flavors need their own '
+      'GoogleService-Info.plist (one iOS app per flavor in Firebase) before they can use Firebase.');
   return null;
 }
 

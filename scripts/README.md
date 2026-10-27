@@ -24,7 +24,7 @@ works regardless of your current working directory.
 | Staging/production API URLs (include the `/api` prefix; trailing `/` is stripped) | `api_base_url_staging`/`_production` | No |
 | iOS App Store URL | `ios_app_store_url` | No (placeholder allowed) |
 | App icon (PNG) | Copied to `assets/logo/icon.png`, then `flutter_launcher_icons` is rerun | No |
-| `google-services.json` | Copied to `android/app/`. Validated: must list both `<application_id>` and `<application_id>.staging`, and have Google sign-in enabled | **Yes** |
+| `google-services.json` | Copied to `android/app/`. Validated: must list `<application_id>`, `<application_id>.staging` and `<application_id>.di`, and have Google sign-in enabled | **Yes** |
 | `GoogleService-Info.plist` | Copied to `ios/Runner/`. Validated: must contain `CLIENT_ID`, `REVERSED_CLIENT_ID` and a `BUNDLE_ID` matching this project. The Google Sign-In keys in `Info.plist` are filled from it | **Yes** |
 
 The two Firebase files are required: push, Crashlytics, Analytics and Google

@@ -6,14 +6,22 @@ import '../model/user_model.dart';
 abstract class AuthRepository {
   Future<Either<AppError, User>> login({required String email, required String password});
 
+  /// Final signup step, after the email was verified. [verificationToken] is
+  /// what [verifySignupOtp] returned: the backend must only create the account
+  /// for an email whose code was verified.
   Future<Either<AppError, User>> signup({
     required String name,
     required String email,
     required String password,
     required String phone,
     required DateTime dateOfBirth,
+    required String verificationToken,
     String? photoPath,
   });
+
+  /// Signup step 2: checks the emailed code and returns a single-use
+  /// verification token for [signup].
+  Future<Either<AppError, String>> verifySignupOtp({required String email, required String otp});
 
   /// [idToken] is Google's own ID token (not a Firebase one -- this template
   /// has no Firebase Auth dependency, see docs/ARCHITECTURE.md). A real

@@ -5,7 +5,7 @@ import '../../features/auth/presentation/screens/forgot_password_otp_screen.dart
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/reset_password_screen.dart';
-import '../../features/auth/presentation/screens/signup_details_screen.dart';
+import '../../features/auth/presentation/screens/signup_password_screen.dart';
 import '../../features/auth/presentation/screens/signup_otp_screen.dart';
 import '../../features/auth/presentation/screens/signup_screen.dart';
 import '../../features/dashboard/presentation/bindings/dashboard_bindings.dart';
@@ -31,8 +31,8 @@ abstract class AppRoutes {
   static const splash = '/splash';
   static const login = '/login';
   static const signup = '/signup';
-  static const signupDetails = '/signup/details';
   static const signupOtp = '/signup/otp';
+  static const signupPassword = '/signup/password';
   static const forgotPassword = '/forgot-password';
   static const forgotPasswordOtp = '/forgot-password/otp';
   static const resetPassword = '/forgot-password/reset';
@@ -64,14 +64,14 @@ abstract class AppRoutes {
       middlewares: [GuestGuard()],
     ),
     GetPage(
-      name: signupDetails,
-      page: SignupDetailsScreen.new,
+      name: signupOtp,
+      page: SignupOtpScreen.new,
       binding: AuthBindings(),
       middlewares: [GuestGuard()],
     ),
     GetPage(
-      name: signupOtp,
-      page: SignupOtpScreen.new,
+      name: signupPassword,
+      page: SignupPasswordScreen.new,
       binding: AuthBindings(),
       middlewares: [GuestGuard()],
     ),

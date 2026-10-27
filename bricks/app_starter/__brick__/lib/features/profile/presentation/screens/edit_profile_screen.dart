@@ -33,23 +33,21 @@ class EditProfileScreen extends GetView<EditProfileController> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                AppTextFormField(
-                  label: 'Full name',
+                AppTextFormField.name(
                   controller: controller.nameController,
-                  validator: Validators.required('Name'),
+                  validator: Validators.name(),
                 ),
                 const SizedBox(height: 16),
-                AppTextFormField(
-                  label: 'Email',
+                AppTextFormField.email(
                   controller: controller.emailController,
-                  keyboardType: TextInputType.emailAddress,
                   validator: Validators.email(),
                 ),
                 const SizedBox(height: 16),
-                AppTextFormField(
+                AppTextFormField.phone(
                   label: 'Phone (optional)',
                   controller: controller.phoneController,
-                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.done,
+                  validator: Validators.optionalPhone(),
                 ),
                 const SizedBox(height: 16),
                 Obx(

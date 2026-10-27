@@ -6,6 +6,13 @@ flavors:
       applicationId: "{{application_id}}"
     ios:
       bundleId: "{{application_id}}"
+  di:
+    app:
+      name: "{{{app_name}}} DI"
+    android:
+      applicationId: "{{application_id}}.di"
+    ios:
+      bundleId: "{{application_id}}.di"
   staging:
     app:
       name: "{{{app_name}}} Staging"

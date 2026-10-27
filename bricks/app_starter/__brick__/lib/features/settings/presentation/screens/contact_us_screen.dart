@@ -19,23 +19,24 @@ class ContactUsScreen extends GetView<ContactUsController> {
         key: controller.formKey,
         child: ListView(
           children: [
-            AppTextFormField(
+            AppTextFormField.name(
               label: 'Name',
               controller: controller.nameController,
-              validator: Validators.required('Name'),
+              validator: Validators.name(),
             ),
             const SizedBox(height: 16),
-            AppTextFormField(
-              label: 'Email',
+            AppTextFormField.email(
               controller: controller.emailController,
-              keyboardType: TextInputType.emailAddress,
               validator: Validators.email(),
             ),
             const SizedBox(height: 16),
-            TextFormField(
+            AppTextFormField(
+              label: 'Message',
               controller: controller.messageController,
               maxLines: 5,
-              decoration: const InputDecoration(labelText: 'Message'),
+              keyboardType: TextInputType.multiline,
+              textInputAction: TextInputAction.newline,
+              textCapitalization: TextCapitalization.sentences,
               validator: Validators.required('Message'),
             ),
             const SizedBox(height: 24),

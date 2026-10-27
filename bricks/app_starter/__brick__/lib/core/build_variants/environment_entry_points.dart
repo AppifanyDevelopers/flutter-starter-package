@@ -13,6 +13,16 @@ class StagingEntryPoint extends StatelessWidget {
   }
 }
 
+class DiEntryPoint extends StatelessWidget {
+  const DiEntryPoint({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    AppConfiguration.current = AppConfiguration.di;
+    return const AppEntryPoint();
+  }
+}
+
 class ProductionEntryPoint extends StatelessWidget {
   const ProductionEntryPoint({super.key});
 
