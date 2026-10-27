@@ -15,8 +15,29 @@ final _projectNamePattern = RegExp(r'^[a-z][a-z0-9_]*$');
 final _orgPattern = RegExp(r'^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)+$');
 final _hexColorPattern = RegExp(r'^#?[0-9a-fA-F]{6}$');
 
+// Colour is used only on a real terminal (or when FORCE_COLOR is set) and never
+// when NO_COLOR is set, so piped input/output (CI, tests) stays plain text.
+final _useColor = !Platform.environment.containsKey('NO_COLOR') &&
+    (stdout.hasTerminal || Platform.environment.containsKey('FORCE_COLOR'));
+String _paint(String code, String text) => _useColor && text.isNotEmpty ? '\x1B[${code}m$text\x1B[0m' : text;
+
+/// A question the user must answer.
+String _question(String text) => _paint('1;36', text);
+
+/// The default shown after a question.
+String _hint(String text) => _paint('2', text);
+
+/// A validation message.
+String _bad(String text) => _paint('31', text);
+
+/// A warning or note.
+String _warn(String text) => _paint('33', text);
+
+/// A section heading.
+String _heading(String text) => _paint('1;35', text);
+
 Future<void> main() async {
-  stdout.writeln('=== flutter_starter_pack: new project generator ===\n');
+  stdout.writeln(_heading('=== flutter_starter_pack: new project generator ===\n'));
 
   final projectName = _ask(
     'Package/project name (lower_snake_case, e.g. acme_rentals)',
@@ -115,7 +136,7 @@ Future<void> main() async {
         : 'Must be an App Store link, e.g. https://apps.apple.com/app/id1234567890.',
   );
 
-  stdout.writeln('\n--- Firebase (required: push, Crashlytics, Analytics, Google Sign-In) ---');
+  stdout.writeln(_heading('\n--- Firebase (required: push, Crashlytics, Analytics, Google Sign-In) ---'));
   stdout.writeln('Create the Android apps for "$applicationId", "$applicationId.staging" AND "$applicationId.di",');
   stdout.writeln('enable the Google sign-in provider, then download both files.');
   final googleServicesPath = _askRequiredFile(
@@ -129,7 +150,7 @@ Future<void> main() async {
     validate: (path) => _validatePlist(path, applicationId),
   );
 
-  stdout.writeln('\n--- Colours ---');
+  stdout.writeln(_heading('\n--- Colours ---'));
   stdout.writeln('Text, borders and status colours come from a neutral/grey/warning palette.');
   final colorsXmlPath = _askOptionalFile(
     'color.xml to take warning*, neutral* and grey* colours from (Enter to use the built-in basics)',
@@ -137,13 +158,13 @@ Future<void> main() async {
   );
   final paletteOverrides = colorsXmlPath == null ? null : _readPaletteOverrides(colorsXmlPath);
   if (paletteOverrides != null && monorepo && _detectMonorepoBase(Directory('${parentDir.path}/$monorepoFolder')) != null) {
-    stdout.writeln('  Note: the existing design-system package already owns the palette, so this file is ignored.');
+    stdout.writeln(_warn('  Note: the existing design-system package already owns the palette, so this file is ignored.'));
   }
 
-  stdout.writeln('\n--- Optional ---');
+  stdout.writeln(_heading('\n--- Optional ---'));
   final iconPath = _askOptionalFile('App icon (PNG, ideally 1024x1024)', extensions: ['.png']);
 
-  stdout.writeln('\n--- Summary ---');
+  stdout.writeln(_heading('\n--- Summary ---'));
   stdout.writeln('Layout:              ${monorepo ? 'monorepo ($monorepoFolder, base package "$monorepoBase")' : 'polyrepo'}');
   stdout.writeln('Project folder:     $outputPath');
   stdout.writeln('Project name:        $projectName');
@@ -158,7 +179,7 @@ Future<void> main() async {
   stdout.writeln('App icon:            ${iconPath ?? '(skipped -- placeholder icon kept)'}');
   stdout.writeln('google-services.json: $googleServicesPath');
   stdout.writeln('GoogleService-Info.plist: $googleServiceInfoPlistPath');
-  stdout.write('\nGenerate with these values? [Y/n] ');
+  stdout.write(_question('\nGenerate with these values?') + _hint(' [Y/n] '));
   final confirmed = _readLine().toLowerCase();
   if (confirmed == 'n' || confirmed == 'no') {
     stdout.writeln('Cancelled.');
@@ -247,17 +268,17 @@ String _ask(
 }) {
   while (true) {
     final suffix = defaultValue != null ? ' [$defaultValue]' : '';
-    stdout.write('$prompt$suffix: ');
+    stdout.write('${_question(prompt)}${_hint(suffix)}: ');
     final input = _readLine();
     final value = input.isEmpty ? (defaultValue ?? '') : input;
 
     if (value.isEmpty && required) {
-      stdout.writeln('  This field is required.');
+      stdout.writeln(_bad('  This field is required.'));
       continue;
     }
     final error = value.isEmpty ? null : validator?.call(value);
     if (error != null) {
-      stdout.writeln('  $error');
+      stdout.writeln(_bad('  $error'));
       continue;
     }
     return value;
@@ -266,18 +287,18 @@ String _ask(
 
 String? _askOptionalFile(String label, {required List<String> extensions}) {
   while (true) {
-    stdout.write('$label (path, Enter to skip): ');
+    stdout.write('${_question(label)} ${_hint('(path, Enter to skip)')}: ');
     final input = _readLine();
     if (input.isEmpty) return null;
 
     final path = _expandHome(input);
     if (!File(path).existsSync()) {
-      stdout.writeln('  No file found at "$path". Try again, or press Enter to skip.');
+      stdout.writeln(_bad('  No file found at "$path". Try again, or press Enter to skip.'));
       continue;
     }
     final lowerPath = path.toLowerCase();
     if (!extensions.any(lowerPath.endsWith)) {
-      stdout.writeln('  Expected a ${extensions.join(' or ')} file. Try again, or press Enter to skip.');
+      stdout.writeln(_bad('  Expected a ${extensions.join(' or ')} file. Try again, or press Enter to skip.'));
       continue;
     }
     return path;
@@ -328,12 +349,12 @@ String? _detectMonorepoBase(Directory root) {
 
 String _askChoice(String prompt, {required List<String> choices, required String defaultValue}) {
   while (true) {
-    stdout.write('$prompt (${choices.join('/')}) [$defaultValue]: ');
+    stdout.write('${_question(prompt)} ${_hint('(${choices.join('/')}) [$defaultValue]')}: ');
     final input = _readLine().toLowerCase();
     if (input.isEmpty) return defaultValue;
     final match = choices.where((c) => c == input || c.startsWith(input)).toList();
     if (match.length == 1) return match.single;
-    stdout.writeln('  Please answer ${choices.join(' or ')}.');
+    stdout.writeln(_bad('  Please answer ${choices.join(' or ')}.'));
   }
 }
 
@@ -363,7 +384,7 @@ Map<String, String> _readPaletteOverrides(String path) {
   }
   stdout.writeln('  Using ${taken.length} colours: ${taken.keys.join(', ')}');
   if (repeated.isNotEmpty) {
-    stdout.writeln('  Warning: defined more than once (the first value is used): ${repeated.join(', ')}');
+    stdout.writeln(_warn('  Warning: defined more than once (the first value is used): ${repeated.join(', ')}'));
   }
   final suspicious = [
     for (final e in taken.entries)
@@ -371,8 +392,8 @@ Map<String, String> _readPaletteOverrides(String path) {
         '${e.key} (#${e.value}, same as ${otherHexes[e.value]})',
   ];
   if (suspicious.isNotEmpty) {
-    stdout.writeln('  Warning: these look like copy-paste mistakes (a warning colour that equals '
-        'another family\'s): ${suspicious.join(', ')}');
+    stdout.writeln(_warn('  Warning: these look like copy-paste mistakes (a warning colour that equals '
+        'another family\'s): ${suspicious.join(', ')}'));
   }
   if (taken.isEmpty) stdout.writeln('  No warning/neutral/grey colours found; the built-in basics are used.');
   return taken;
@@ -388,24 +409,24 @@ String _askRequiredFile(
   required String? Function(String path) validate,
 }) {
   while (true) {
-    stdout.write('$label (path, required): ');
+    stdout.write('${_question(label)} ${_hint('(path, required)')}: ');
     final input = _readLine();
     if (input.isEmpty) {
-      stdout.writeln('  This file is required.');
+      stdout.writeln(_bad('  This file is required.'));
       continue;
     }
     final path = _expandHome(input);
     if (!File(path).existsSync()) {
-      stdout.writeln('  No file found at "$path". Try again.');
+      stdout.writeln(_bad('  No file found at "$path". Try again.'));
       continue;
     }
     if (!extensions.any(path.toLowerCase().endsWith)) {
-      stdout.writeln('  Expected a ${extensions.join(' or ')} file. Try again.');
+      stdout.writeln(_bad('  Expected a ${extensions.join(' or ')} file. Try again.'));
       continue;
     }
     final error = validate(path);
     if (error != null) {
-      stdout.writeln('  $error');
+      stdout.writeln(_bad('  $error'));
       continue;
     }
     return path;
@@ -466,8 +487,8 @@ String? _validatePlist(String path, String applicationId) {
         '$production.staging (staging) / $production.di (di). Add a matching iOS app in Firebase '
         'and re-download.';
   }
-  stdout.writeln('  Note: this plist is for $bundleId only. The other flavors need their own '
-      'GoogleService-Info.plist (one iOS app per flavor in Firebase) before they can use Firebase.');
+  stdout.writeln(_warn('  Note: this plist is for $bundleId only. The other flavors need their own '
+      'GoogleService-Info.plist (one iOS app per flavor in Firebase) before they can use Firebase.'));
   return null;
 }
 
