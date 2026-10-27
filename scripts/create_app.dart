@@ -25,13 +25,52 @@ Future<void> main() async {
         ? null
         : 'Must be lower_snake_case, starting with a letter (e.g. acme_rentals).',
   );
-  // The project always gets its own folder, <parent>/<project_name>, so its
-  // files can never be spread into a folder that already holds other things.
   final parentPath = _expandHome(_ask(
-    'Parent folder to create the project in (a "$projectName" folder is created inside it)',
+    'Parent folder to create the project in',
     required: true,
   ));
-  final outputPath = '${Directory(parentPath).absolute.path}/$projectName';
+  final parentDir = Directory(parentPath).absolute;
+
+  // Layout. Polyrepo (default): <parent>/<project>. Monorepo: a Melos workspace
+  // <parent>/<folder>/ with apps/<project> plus shared design-system and common
+  // packages, like rentsy. Either way the project gets its own folder, so its
+  // files can never be spread into a folder that already holds other things.
+  final monorepo = _askChoice(
+    'Repository layout: polyrepo (one app per repo) or monorepo (Melos workspace)?',
+    choices: const ['polyrepo', 'monorepo'],
+    defaultValue: 'polyrepo',
+  ) == 'monorepo';
+
+  String? monorepoFolder;
+  String? monorepoBase;
+  late final String outputPath;
+  if (monorepo) {
+    monorepoFolder = _ask(
+      'Monorepo folder name (created inside the parent folder, e.g. acme_monorepo)',
+      required: true,
+      validator: (v) => RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(v)
+          ? null
+          : 'Letters, digits, ., _ and - only.',
+    );
+    final rootDir = Directory('${parentDir.path}/$monorepoFolder');
+    final existingBase = _detectMonorepoBase(rootDir);
+    if (existingBase != null) {
+      monorepoBase = existingBase;
+      stdout.writeln('  Existing monorepo found: reusing packages ${existingBase}_design_system and '
+          '${existingBase}_common (they are not modified).');
+    } else {
+      monorepoBase = _ask(
+        'Base package name, lower_snake_case (e.g. acme -> acme_design_system, acme_common)',
+        required: true,
+        validator: (v) => _projectNamePattern.hasMatch(v)
+            ? null
+            : 'Must be lower_snake_case, starting with a letter (e.g. acme).',
+      );
+    }
+    outputPath = '${rootDir.path}/apps/$projectName';
+  } else {
+    outputPath = '${parentDir.path}/$projectName';
+  }
   final existing = Directory(outputPath);
   if (existing.existsSync() && existing.listSync().isNotEmpty) {
     stderr.writeln('\n"$outputPath" already exists and is not empty. Pick another parent folder '
@@ -90,10 +129,22 @@ Future<void> main() async {
     validate: (path) => _validatePlist(path, applicationId),
   );
 
+  stdout.writeln('\n--- Colours ---');
+  stdout.writeln('Text, borders and status colours come from a neutral/grey/warning palette.');
+  final colorsXmlPath = _askOptionalFile(
+    'color.xml to take warning*, neutral* and grey* colours from (Enter to use the built-in basics)',
+    extensions: ['.xml'],
+  );
+  final paletteOverrides = colorsXmlPath == null ? null : _readPaletteOverrides(colorsXmlPath);
+  if (paletteOverrides != null && monorepo && _detectMonorepoBase(Directory('${parentDir.path}/$monorepoFolder')) != null) {
+    stdout.writeln('  Note: the existing design-system package already owns the palette, so this file is ignored.');
+  }
+
   stdout.writeln('\n--- Optional ---');
   final iconPath = _askOptionalFile('App icon (PNG, ideally 1024x1024)', extensions: ['.png']);
 
   stdout.writeln('\n--- Summary ---');
+  stdout.writeln('Layout:              ${monorepo ? 'monorepo ($monorepoFolder, base package "$monorepoBase")' : 'polyrepo'}');
   stdout.writeln('Project folder:     $outputPath');
   stdout.writeln('Project name:        $projectName');
   stdout.writeln('App name:            $appName');
@@ -103,6 +154,7 @@ Future<void> main() async {
   stdout.writeln('API (staging):       $apiStaging');
   stdout.writeln('API (production):    $apiProduction');
   stdout.writeln('iOS App Store URL:   $iosAppStoreUrl');
+  stdout.writeln('Colours:            ${paletteOverrides == null ? 'built-in basics' : '${paletteOverrides.length} from $colorsXmlPath'}');
   stdout.writeln('App icon:            ${iconPath ?? '(skipped -- placeholder icon kept)'}');
   stdout.writeln('google-services.json: $googleServicesPath');
   stdout.writeln('GoogleService-Info.plist: $googleServiceInfoPlistPath');
@@ -129,6 +181,12 @@ Future<void> main() async {
     'ios_app_store_url': iosAppStoreUrl,
   }));
 
+  // Hand the palette to the brick's post_gen hook through a temp file.
+  File? colorsJson;
+  if (paletteOverrides != null) {
+    colorsJson = File('${varsFile.parent.path}/palette.json')..writeAsStringSync(jsonEncode(paletteOverrides));
+  }
+
   stdout.writeln('\nResolving the brick...');
   await _runInherited('mason', ['get'], workingDirectory: repoRoot);
 
@@ -139,7 +197,11 @@ Future<void> main() async {
     workingDirectory: repoRoot,
     // Read by the brick's post_gen hook, which uses it as the base for the
     // launcher icons (including the STAGING/DI ribbon copies).
-    environment: {if (iconPath != null) 'APP_STARTER_ICON': File(iconPath).absolute.path},
+    environment: {
+      if (iconPath != null) 'APP_STARTER_ICON': File(iconPath).absolute.path,
+      if (monorepoBase != null) 'APP_STARTER_MONOREPO_BASE': monorepoBase,
+      if (paletteOverrides != null) 'APP_STARTER_COLORS_JSON': colorsJson!.path,
+    },
   );
 
   stdout.writeln('\nCopying google-services.json into android/app/...');
@@ -250,6 +312,70 @@ Future<void> _runInherited(
     }
     exit(exitCode);
   }
+}
+
+/// The `<base>` of an existing monorepo's `<base>_design_system` package, if
+/// [root] already is a monorepo (has a melos.yaml and that package).
+String? _detectMonorepoBase(Directory root) {
+  final packages = Directory('${root.path}/packages');
+  if (!File('${root.path}/melos.yaml').existsSync() || !packages.existsSync()) return null;
+  for (final entity in packages.listSync().whereType<Directory>()) {
+    final name = entity.path.split(Platform.pathSeparator).last;
+    if (name.endsWith('_design_system')) return name.substring(0, name.length - '_design_system'.length);
+  }
+  return null;
+}
+
+String _askChoice(String prompt, {required List<String> choices, required String defaultValue}) {
+  while (true) {
+    stdout.write('$prompt (${choices.join('/')}) [$defaultValue]: ');
+    final input = _readLine().toLowerCase();
+    if (input.isEmpty) return defaultValue;
+    final match = choices.where((c) => c == input || c.startsWith(input)).toList();
+    if (match.length == 1) return match.single;
+    stdout.writeln('  Please answer ${choices.join(' or ')}.');
+  }
+}
+
+/// Reads `<color name="x">#RRGGBB</color>` entries and keeps only the
+/// `warning<N>`, `neutral<N>` and `grey<N>` ones. Prints what it found and
+/// anything suspicious; the first definition of a repeated name wins.
+Map<String, String> _readPaletteOverrides(String path) {
+  final xml = File(path).readAsStringSync();
+  final all = RegExp(r'<color name="([^"]+)">#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})</color>').allMatches(xml);
+  final family = RegExp(r'^(warning|neutral|grey)\d+$');
+  final taken = <String, String>{};
+  final repeated = <String>{};
+  final otherHexes = <String, String>{}; // hex -> a non-family colour that uses it
+  for (final m in all) {
+    final name = m.group(1)!;
+    final raw = m.group(2)!;
+    final hex = (raw.length == 8 ? raw.substring(2) : raw).toUpperCase();
+    if (family.hasMatch(name)) {
+      if (taken.containsKey(name)) {
+        repeated.add(name);
+      } else {
+        taken[name] = hex;
+      }
+    } else {
+      otherHexes.putIfAbsent(hex, () => name);
+    }
+  }
+  stdout.writeln('  Using ${taken.length} colours: ${taken.keys.join(', ')}');
+  if (repeated.isNotEmpty) {
+    stdout.writeln('  Warning: defined more than once (the first value is used): ${repeated.join(', ')}');
+  }
+  final suspicious = [
+    for (final e in taken.entries)
+      if (e.key.startsWith('warning') && otherHexes[e.value] != null)
+        '${e.key} (#${e.value}, same as ${otherHexes[e.value]})',
+  ];
+  if (suspicious.isNotEmpty) {
+    stdout.writeln('  Warning: these look like copy-paste mistakes (a warning colour that equals '
+        'another family\'s): ${suspicious.join(', ')}');
+  }
+  if (taken.isEmpty) stdout.writeln('  No warning/neutral/grey colours found; the built-in basics are used.');
+  return taken;
 }
 
 String _normalizeUrl(String url) => url.endsWith('/') ? url.substring(0, url.length - 1) : url;

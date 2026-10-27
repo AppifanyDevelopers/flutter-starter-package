@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_palette.dart';
+
 abstract class AppTheme {
   AppTheme._();
 
@@ -8,7 +10,15 @@ abstract class AppTheme {
   static ThemeData dark(Color seed) => _build(seed, Brightness.dark);
 
   static ThemeData _build(Color seed, Brightness brightness) {
-    final colorScheme = ColorScheme.fromSeed(seedColor: seed, brightness: brightness);
+    final isLight = brightness == Brightness.light;
+    // Text, hints and borders come from the neutral ramp rather than the
+    // seed-tinted Material defaults, so they stay the same across brand colours.
+    final colorScheme = ColorScheme.fromSeed(seedColor: seed, brightness: brightness).copyWith(
+      onSurface: isLight ? AppPalette.neutral900 : AppPalette.neutral50,
+      onSurfaceVariant: isLight ? AppPalette.neutral600 : AppPalette.neutral300,
+      outline: isLight ? AppPalette.neutral500 : AppPalette.neutral600,
+      outlineVariant: isLight ? AppPalette.neutral200 : AppPalette.neutral900,
+    );
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
@@ -24,7 +34,10 @@ abstract class AppTheme {
         selectionHandleColor: colorScheme.primary,
         selectionColor: colorScheme.primary.withValues(alpha: 0.3),
       ),
+      dividerColor: colorScheme.outlineVariant,
       inputDecorationTheme: InputDecorationTheme(
+        hintStyle: TextStyle(color: AppPalette.neutral500),
+        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
         filled: true,
         fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         border: OutlineInputBorder(

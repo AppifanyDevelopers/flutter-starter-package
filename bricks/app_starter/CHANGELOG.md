@@ -2,6 +2,14 @@
 
 ## 0.7.0
 
+- **Colours:** new `AppPalette` (neutral, grey and warning ramps, defaults from
+  rentsy) drives text, hint and border colours. `scripts/create_app.dart` asks
+  for an optional `color.xml` and reads only `warning*`, `neutral*` and `grey*`.
+- **Monorepo option:** `scripts/create_app.dart` asks polyrepo (default) or
+  monorepo (folder name, base package name) and generates a Melos workspace with
+  `apps/<project>`, `<base>_design_system` and `<base>_common`, reusing existing
+  packages when adding another app.
+
 - **New `di` flavor** next to `staging` and `production`: id `<application_id>.di`,
   `.env.di` (starts on the staging API URL), app name "<App> DI", Fastlane
   `build_di` lanes. The guided script now requires all three Android packages in

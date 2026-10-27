@@ -291,3 +291,37 @@ the bundle id across every Xcode build configuration -- but by then
 bundle ids (staging vs. production). A global rewrite would collapse them
 back to one, silently destroying the flavor split. It's kept as a documented
 manual fallback only, for renaming an already-generated project later.
+
+## Colours: `AppPalette`
+
+`core/theme/app_palette.dart` holds the neutral, grey and warning ramps. The
+theme builds its `ColorScheme` from the brand seed, then overrides
+`onSurface`, `onSurfaceVariant`, `outline` and `outlineVariant` (and input
+hints/labels) from the neutral ramp, so text and borders look the same across
+brand colours. The shipped defaults come from rentsy's design system. Passing a
+`color.xml` to `scripts/create_app.dart` regenerates the file: only
+`warning<N>`, `neutral<N>` and `grey<N>` are read, missing names keep their
+default, the first value wins for repeated names.
+
+## Monorepo layout
+
+`scripts/create_app.dart` can generate the app as one app of a Melos
+workspace (the rentsy layout):
+
+```
+<folder>/
+  melos.yaml, pubspec.yaml
+  apps/<project>/
+  packages/<base>_design_system/   AppColors, AppPalette, AppTheme
+  packages/<base>_common/          shared widgets, validators, keyboard helpers
+```
+
+It sets `APP_STARTER_MONOREPO_BASE` for the brick's `post_gen` hook (a plain
+`mason make` leaves it unset and gets a standalone app). The hook rewrites every
+import of the moved files in `lib/` and `test/` to the two packages' barrel
+files, moves the files, scaffolds the packages and adds path dependencies to the
+app. Both moved sets import only Flutter and `shimmer`, which is what keeps this
+safe; if you add a dependency from those files back into the app, move that file
+too or leave the file out of `_commonFiles` in `post_gen.dart`. Running the
+script again with an existing monorepo folder adds another app and reuses the
+packages without touching them (including their palette).

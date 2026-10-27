@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:{{project_name}}/core/build_variants/app_environment.dart';
+import 'package:{{project_name}}/core/theme/app_palette.dart';
 import 'package:{{project_name}}/core/theme/app_theme.dart';
 import 'package:{{project_name}}/core/utils/keyboard.dart';
 import 'package:{{project_name}}/core/validators/validators.dart';
@@ -188,6 +189,32 @@ void main() {
         expect(theme.textSelectionTheme.cursorColor, theme.colorScheme.primary);
         expect(theme.textSelectionTheme.selectionHandleColor, theme.colorScheme.primary);
       }
+    });
+  });
+
+  group('palette', () {
+    test('text, hint and border colours come from the neutral ramp, not the seed', () {
+      for (final seed in [const Color(0xFF32A852), const Color(0xFFD42B65)]) {
+        final light = AppTheme.light(seed).colorScheme;
+        expect(light.onSurface, AppPalette.neutral900);
+        expect(light.onSurfaceVariant, AppPalette.neutral600);
+        expect(light.outlineVariant, AppPalette.neutral200);
+
+        final dark = AppTheme.dark(seed).colorScheme;
+        expect(dark.onSurface, AppPalette.neutral50);
+        expect(dark.onSurfaceVariant, AppPalette.neutral300);
+      }
+    });
+
+    test('every colour the theme reads exists', () {
+      expect([
+        AppPalette.neutral50,
+        AppPalette.neutral200,
+        AppPalette.neutral300,
+        AppPalette.neutral500,
+        AppPalette.neutral600,
+        AppPalette.neutral900,
+      ], everyElement(isA<Color>()));
     });
   });
 

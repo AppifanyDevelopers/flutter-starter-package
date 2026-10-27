@@ -15,14 +15,16 @@ works regardless of your current working directory.
 
 | Prompt | Maps to | Required? |
 |---|---|---|
-| Parent folder | Where to create the project. A `<project_name>` folder is created inside it, so files are never spread into the folder you pick; the script refuses if that folder already exists and is not empty | Yes |
+| Parent folder | Where to create the project (polyrepo: `<parent>/<project_name>`). A `<project_name>` folder is created inside it, so files are never spread into the folder you pick; the script refuses if that folder already exists and is not empty | Yes |
 | Package/project name | `project_name` brick var | Yes |
 | App display name | `app_name` brick var | Yes |
+| Repository layout | `polyrepo` (default) or `monorepo`. Monorepo asks for a **folder name** and a **base package name**, and creates `<parent>/<folder>/` with `apps/<project>`, `packages/<base>_design_system` (colours, palette, theme), `packages/<base>_common` (shared widgets, validators) and a Melos `melos.yaml`/`pubspec.yaml`. If the folder already is a monorepo, only a new app is added and the packages are reused untouched | No (default polyrepo) |
 | Application ID (exactly the Android applicationId / iOS bundle id; letters and digits only) | `application_id` brick var | Yes |
 | Brand color | `seed_color` brick var | No (default `#6750A4`) |
 | Description | `description` brick var | No |
 | Staging/production API URLs (include the `/api` prefix; trailing `/` is stripped) | `api_base_url_staging`/`_production` | No |
 | iOS App Store URL | `ios_app_store_url` | No (placeholder allowed) |
+| `color.xml` | Only `warning<N>`, `neutral<N>` and `grey<N>` entries are read and written to `AppPalette`; names it lacks keep the built-in defaults. The first value wins for repeated names, and suspicious copy-paste values are flagged. Enter uses the built-in basics | No |
 | App icon (PNG) | Copied to `assets/logo/icon.png`, then `flutter_launcher_icons` is rerun | No |
 | `google-services.json` | Copied to `android/app/`. Validated: must list `<application_id>`, `<application_id>.staging` and `<application_id>.di`, and have Google sign-in enabled | **Yes** |
 | `GoogleService-Info.plist` | Copied to `ios/Runner/`. Validated: must contain `CLIENT_ID`, `REVERSED_CLIENT_ID` and a `BUNDLE_ID` matching this project. The Google Sign-In keys in `Info.plist` are filled from it | **Yes** |

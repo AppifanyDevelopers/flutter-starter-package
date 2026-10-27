@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:image/image.dart' as img;
@@ -568,6 +569,286 @@ void _alignIosBundleIds(HookContext context, String applicationId) {
   context.logger.detail('Aligned iOS bundle ids to $applicationId.');
 }
 
+
+/// Rewrites `lib/core/theme/app_palette.dart` with the colours from
+/// `APP_STARTER_COLORS_JSON` (a `{"neutral900": "101B30", ...}` file written by
+/// `scripts/create_app.dart` from the user's `color.xml`). Names the file does
+/// not define keep the defaults, so the theme's required entries always exist.
+void _applyPaletteOverrides(HookContext context) {
+  final overridesPath = Platform.environment['APP_STARTER_COLORS_JSON'];
+  if (overridesPath == null || overridesPath.isEmpty || !File(overridesPath).existsSync()) return;
+
+  final overrides = (jsonDecode(File(overridesPath).readAsStringSync()) as Map).cast<String, String>();
+  final file = File('lib/core/theme/app_palette.dart');
+  final colors = <String, String>{
+    for (final m in RegExp(r'static const Color (\w+) = Color\(0xFF([0-9A-Fa-f]{6})\);')
+        .allMatches(file.readAsStringSync()))
+      m.group(1)!: m.group(2)!.toUpperCase(),
+  };
+  overrides.forEach((name, hex) => colors[name] = hex.toUpperCase());
+
+  int order(String n) {
+    final family = RegExp(r'^[a-z]+').firstMatch(n)!.group(0)!;
+    final rank = ['neutral', 'grey', 'warning'].indexOf(family);
+    final step = int.tryParse(n.substring(family.length)) ?? 0;
+    return (rank < 0 ? 9 : rank) * 100000 + step;
+  }
+
+  final names = colors.keys.toList()..sort((a, b) => order(a).compareTo(order(b)));
+  final buffer = StringBuffer()
+    ..writeln("import 'package:flutter/material.dart';")
+    ..writeln()
+    ..writeln('/// Neutral, grey and warning ramps used for text, borders and status colours.')
+    ..writeln('///')
+    ..writeln('/// Generated from your `color.xml` by `scripts/create_app.dart` (only the')
+    ..writeln('/// `warning*`, `neutral*` and `grey*` entries are read; anything it does not')
+    ..writeln('/// define keeps the default). The theme reads `neutral50`, `neutral200`,')
+    ..writeln('/// `neutral300`, `neutral500`, `neutral600` and `neutral900`.')
+    ..writeln('abstract class AppPalette {')
+    ..writeln('  AppPalette._();');
+  String? last;
+  for (final n in names) {
+    final family = RegExp(r'^[a-z]+').firstMatch(n)!.group(0)!;
+    if (family != last) {
+      buffer
+        ..writeln()
+        ..writeln('  // $family');
+      last = family;
+    }
+    buffer.writeln('  static const Color $n = Color(0xFF${colors[n]});');
+  }
+  buffer.writeln('}');
+  file.writeAsStringSync(buffer.toString());
+  context.logger.detail('Applied ${overrides.length} palette colours from your color file.');
+}
+
+/// Files that move into `<base>_design_system` / `<base>_common` in a monorepo,
+/// relative to the app root. Both sets only import each other and Flutter (plus
+/// `shimmer`), so they can be lifted out without touching anything else.
+const _designSystemFiles = [
+  'lib/core/theme/app_colors.dart',
+  'lib/core/theme/app_palette.dart',
+  'lib/core/theme/app_theme.dart',
+];
+
+const _commonFiles = [
+  'lib/core/widgets/app_text_form_field.dart',
+  'lib/core/widgets/app_outlined_button.dart',
+  'lib/core/widgets/app_scaffold.dart',
+  'lib/core/widgets/custom_app_bar.dart',
+  'lib/core/widgets/app_shimmer.dart',
+  'lib/core/widgets/app_loading_widget.dart',
+  'lib/core/widgets/app_error_widget.dart',
+  'lib/core/widgets/password_rules_checklist.dart',
+  'lib/core/widgets/step_indicator.dart',
+  'lib/core/widgets/app_bottom_sheet.dart',
+  'lib/core/widgets/avatar_picker.dart',
+  'lib/core/validators/validators.dart',
+  'lib/core/utils/keyboard.dart',
+];
+
+String _normalize(String path) {
+  final out = <String>[];
+  for (final part in path.split('/')) {
+    if (part.isEmpty || part == '.') continue;
+    if (part == '..') {
+      if (out.isNotEmpty) out.removeLast();
+    } else {
+      out.add(part);
+    }
+  }
+  return out.join('/');
+}
+
+/// Turns the generated single app into one app of a Melos monorepo
+/// (`<root>/apps/<app>`, `<root>/packages/<base>_design_system`,
+/// `<root>/packages/<base>_common`), the layout used by rentsy. When the
+/// packages already exist (adding a second app) they are left alone and the
+/// app just depends on them.
+Future<void> _applyMonorepo(HookContext context, {required String base, required String projectName}) async {
+  final appDir = Directory.current.absolute;
+  final root = appDir.parent.parent;
+  if (appDir.parent.path.split(Platform.pathSeparator).last != 'apps') {
+    throw Exception('Monorepo mode expects the app to be generated into <root>/apps/<app> (got ${appDir.path}).');
+  }
+
+  final dsName = '${base}_design_system';
+  final commonName = '${base}_common';
+  final dsDir = Directory('${root.path}/packages/$dsName');
+  final commonDir = Directory('${root.path}/packages/$commonName');
+  final createDs = !dsDir.existsSync();
+  final createCommon = !commonDir.existsSync();
+
+  // 1. Rewrite the app's imports of moved files, before moving them.
+  final dsBarrel = 'package:$dsName/$dsName.dart';
+  final commonBarrel = 'package:$commonName/$commonName.dart';
+  final targets = <String, String>{
+    for (final f in _designSystemFiles) f: dsBarrel,
+    for (final f in _commonFiles) f: commonBarrel,
+  };
+  final importPattern = RegExp('^(\\s*(?:import|export)\\s+)([\'"])([^\'"]+)\\2', multiLine: true);
+  for (final dir in [Directory('lib'), Directory('test')].where((d) => d.existsSync())) {
+    for (final file in dir.listSync(recursive: true).whereType<File>().where((f) => f.path.endsWith('.dart'))) {
+      final fileDir = file.parent.path;
+      var changed = false;
+      var text = file.readAsStringSync().replaceAllMapped(importPattern, (m) {
+        final uri = m.group(3)!;
+        String? resolved;
+        if (uri.startsWith('package:$projectName/')) {
+          resolved = 'lib/${uri.substring('package:$projectName/'.length)}';
+        } else if (!uri.contains(':')) {
+          resolved = _normalize('$fileDir/$uri');
+        }
+        final replacement = resolved == null ? null : targets[resolved];
+        if (replacement == null) return m.group(0)!;
+        changed = true;
+        return '${m.group(1)}${m.group(2)}$replacement${m.group(2)}';
+      });
+      if (!changed) continue;
+      // Several moved files imported by one file collapse to a single import.
+      final seen = <String>{};
+      text = text.split('\n').where((line) {
+        final isBarrel = line.contains(dsBarrel) || line.contains(commonBarrel);
+        return !isBarrel || seen.add(line.trim());
+      }).join('\n');
+      file.writeAsStringSync(text);
+    }
+  }
+
+  // 2. Move (or discard, if the package already exists) the shared files.
+  void moveInto(Directory pkg, List<String> files, {required bool create}) {
+    for (final f in files) {
+      final source = File(f);
+      if (create) {
+        final target = File('${pkg.path}/${f.replaceFirst('lib/core/', 'lib/src/')}');
+        target.parent.createSync(recursive: true);
+        target.writeAsStringSync(source.readAsStringSync());
+      }
+      source.deleteSync();
+    }
+  }
+
+  moveInto(dsDir, _designSystemFiles, create: createDs);
+  moveInto(commonDir, _commonFiles, create: createCommon);
+
+  String exports(List<String> files) =>
+      files.map((f) => "export 'src/${f.replaceFirst('lib/core/', '')}';").join('\n');
+
+  // 3. Package scaffolding.
+  final appPubspec = File('pubspec.yaml');
+  final pubspecText = appPubspec.readAsStringSync();
+  String constraint(String name, String fallback) =>
+      RegExp('^  $name: (.+)\$', multiLine: true).firstMatch(pubspecText)?.group(1)?.trim() ?? fallback;
+
+  if (createDs) {
+    Directory('${dsDir.path}/lib').createSync(recursive: true);
+    File('${dsDir.path}/lib/$dsName.dart').writeAsStringSync('${exports(_designSystemFiles)}\n');
+    File('${dsDir.path}/pubspec.yaml').writeAsStringSync('''
+name: $dsName
+description: Shared design tokens for $base apps (colours, palette and ThemeData).
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ${constraint('flutter_lints', '^6.0.0')}
+''');
+    File('${dsDir.path}/analysis_options.yaml').writeAsStringSync('include: package:flutter_lints/flutter.yaml\n');
+  }
+  if (createCommon) {
+    Directory('${commonDir.path}/lib').createSync(recursive: true);
+    File('${commonDir.path}/lib/$commonName.dart').writeAsStringSync('${exports(_commonFiles)}\n');
+    File('${commonDir.path}/pubspec.yaml').writeAsStringSync('''
+name: $commonName
+description: Shared widgets and validators for $base apps.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shimmer: ${constraint('shimmer', '^3.0.0')}
+
+dev_dependencies:
+  flutter_lints: ${constraint('flutter_lints', '^6.0.0')}
+''');
+    File('${commonDir.path}/analysis_options.yaml').writeAsStringSync('include: package:flutter_lints/flutter.yaml\n');
+  }
+
+  // 4. Root workspace files, only for a brand-new monorepo.
+  if (!File('${root.path}/melos.yaml').existsSync()) {
+    File('${root.path}/melos.yaml').writeAsStringSync('''
+name: ${base}_monorepo
+
+packages:
+  - packages/**
+  - apps/**
+
+command:
+  bootstrap:
+    usePubspecOverrides: true
+
+scripts:
+  analyze:
+    run: melos exec -- flutter analyze
+    description: Run flutter analyze in every package.
+
+  test:
+    run: melos exec --dir-exists="test" -- flutter test
+    description: Run flutter test in every package that has a test directory.
+''');
+    File('${root.path}/pubspec.yaml').writeAsStringSync('''
+name: ${base}_monorepo
+publish_to: 'none'
+
+environment:
+  sdk: ^3.10.4
+
+dev_dependencies:
+  melos: ^6.3.0
+''');
+    File('${root.path}/.gitignore').writeAsStringSync('.dart_tool/\nbuild/\npubspec_overrides.yaml\n.idea/\n*.iml\n');
+    File('${root.path}/README.md').writeAsStringSync('''
+# ${base}_monorepo
+
+```
+apps/            one folder per app
+packages/
+  $dsName/      colours, palette, ThemeData
+  $commonName/      shared widgets and validators
+```
+
+Run `dart pub global activate melos && melos bootstrap` once, then `melos run analyze`
+and `melos run test`.
+''');
+  }
+
+  // 5. Point the app at the packages.
+  appPubspec.writeAsStringSync(
+    pubspecText.replaceFirst(
+      'dependencies:\n  flutter:\n    sdk: flutter\n',
+      'dependencies:\n  flutter:\n    sdk: flutter\n'
+          '  $dsName:\n    path: ../../packages/$dsName\n'
+          '  $commonName:\n    path: ../../packages/$commonName\n',
+    ),
+  );
+
+  context.logger.detail(
+    'Monorepo: ${createDs ? 'created' : 'reused'} $dsName, ${createCommon ? 'created' : 'reused'} $commonName.',
+  );
+}
+
 Future<void> run(HookContext context) async {
   final projectName = context.vars['project_name'] as String;
   final applicationId = context.vars['application_id'] as String;
@@ -629,10 +910,20 @@ Future<void> run(HookContext context) async {
   _wireIosGoogleSignIn(context);
   _wireIosAppleSignIn(context);
 
+  // 6b. Optional user colours for the palette (scripts/create_app.dart).
+  _applyPaletteOverrides(context);
+
   // 7. Stamp app icons from the placeholder logo shipped in assets/logo/,
   //    with a ribbon on the staging and DI flavors' copies.
   _writeFlavorIcons(context);
   await _run(context, 'dart', ['run', 'flutter_launcher_icons']);
+
+  // 7b. Monorepo layout (scripts/create_app.dart sets this; plain `mason make`
+  //     leaves it unset and gets a standalone app).
+  final monorepoBase = Platform.environment['APP_STARTER_MONOREPO_BASE'];
+  if (monorepoBase != null && monorepoBase.isNotEmpty) {
+    await _applyMonorepo(context, base: monorepoBase, projectName: projectName);
+  }
 
   // 8. Final sync pass after native config changes.
   await _run(context, 'flutter', ['pub', 'get']);
