@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:{{project_name}}/core/build_variants/app_environment.dart';
-import 'package:{{project_name}}/core/theme/app_palette.dart';
 import 'package:{{project_name}}/core/theme/app_theme.dart';
 import 'package:{{project_name}}/core/utils/keyboard.dart';
 import 'package:{{project_name}}/core/validators/validators.dart';
@@ -10,6 +9,7 @@ import 'package:{{project_name}}/core/widgets/app_outlined_button.dart';
 import 'package:{{project_name}}/core/widgets/app_text_form_field.dart';
 import 'package:{{project_name}}/core/widgets/environment_banner.dart';
 import 'package:{{project_name}}/core/widgets/password_rules_checklist.dart';
+import 'package:{{project_name}}/gen/colors.gen.dart';
 
 TextField _field(WidgetTester tester, String label) =>
     tester.widget<TextField>(find.descendant(of: find.widgetWithText(AppTextFormField, label), matching: find.byType(TextField)));
@@ -196,24 +196,24 @@ void main() {
     test('text, hint and border colours come from the neutral ramp, not the seed', () {
       for (final seed in [const Color(0xFF32A852), const Color(0xFFD42B65)]) {
         final light = AppTheme.light(seed).colorScheme;
-        expect(light.onSurface, AppPalette.neutral900);
-        expect(light.onSurfaceVariant, AppPalette.neutral600);
-        expect(light.outlineVariant, AppPalette.neutral200);
+        expect(light.onSurface, ColorName.neutral900);
+        expect(light.onSurfaceVariant, ColorName.neutral600);
+        expect(light.outlineVariant, ColorName.neutral200);
 
         final dark = AppTheme.dark(seed).colorScheme;
-        expect(dark.onSurface, AppPalette.neutral50);
-        expect(dark.onSurfaceVariant, AppPalette.neutral300);
+        expect(dark.onSurface, ColorName.neutral50);
+        expect(dark.onSurfaceVariant, ColorName.neutral300);
       }
     });
 
     test('every colour the theme reads exists', () {
       expect([
-        AppPalette.neutral50,
-        AppPalette.neutral200,
-        AppPalette.neutral300,
-        AppPalette.neutral500,
-        AppPalette.neutral600,
-        AppPalette.neutral900,
+        ColorName.neutral50,
+        ColorName.neutral200,
+        ColorName.neutral300,
+        ColorName.neutral500,
+        ColorName.neutral600,
+        ColorName.neutral900,
       ], everyElement(isA<Color>()));
     });
   });

@@ -292,16 +292,24 @@ bundle ids (staging vs. production). A global rewrite would collapse them
 back to one, silently destroying the flavor split. It's kept as a documented
 manual fallback only, for renaming an already-generated project later.
 
-## Colours: `AppPalette`
+## Colours, fonts and images: flutter_gen
 
-`core/theme/app_palette.dart` holds the neutral, grey and warning ramps. The
-theme builds its `ColorScheme` from the brand seed, then overrides
+`assets/color/color.xml`, `assets/fonts/` (declared under `flutter: fonts:`) and
+`assets/images/` are turned into code by `flutter_gen_runner`:
+`ColorName.primary500`, `FontFamily.poppins` and `Assets.images.banner`, in
+`lib/gen/` (committed). After changing any of them run
+`dart run build_runner build`. `.env*` files are excluded from `Assets`.
+
+The theme builds its `ColorScheme` from the brand seed, then overrides
 `onSurface`, `onSurfaceVariant`, `outline` and `outlineVariant` (and input
-hints/labels) from the neutral ramp, so text and borders look the same across
-brand colours. The shipped defaults come from rentsy's design system. Passing a
-`color.xml` to `scripts/create_app.dart` regenerates the file: only
-`warning<N>`, `neutral<N>` and `grey<N>` are read, missing names keep their
-default, the first value wins for repeated names.
+hints/labels) from the `neutral*` ramp, so text and borders look the same across
+brand colours, and sets the default font family when fonts were given.
+`scripts/create_app.dart` asks for a `color.xml`, a fonts folder and an images
+folder and hands them to the `post_gen` hook (`APP_STARTER_COLORS_XML`,
+`APP_STARTER_FONTS_DIR`, `APP_STARTER_IMAGES_DIR`). The theme needs the
+`neutral50/200/300/500/600/900` entries, so keep those names in any custom file.
+In a monorepo the colours and fonts live in `<base>_design_system`
+(`lib/src/gen/`, fonts used with `ThemeData(package: ...)`); images stay in the app.
 
 ## Monorepo layout
 
@@ -312,7 +320,7 @@ workspace (the rentsy layout):
 <folder>/
   melos.yaml, pubspec.yaml
   apps/<project>/
-  packages/<base>_design_system/   AppColors, AppPalette, AppTheme
+  packages/<base>_design_system/   AppColors, ColorName, FontFamily, AppTheme
   packages/<base>_common/          shared widgets, validators, keyboard helpers
 ```
 

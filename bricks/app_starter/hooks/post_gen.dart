@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:image/image.dart' as img;
@@ -7,13 +6,14 @@ import 'package:mason/mason.dart';
 Future<void> _run(
   HookContext context,
   String executable,
-  List<String> args,
-) async {
+  List<String> args, {
+  String? workingDirectory,
+}) async {
   final progress = context.logger.progress('$executable ${args.join(' ')}');
   final result = await Process.run(
     executable,
     args,
-    workingDirectory: Directory.current.path,
+    workingDirectory: workingDirectory ?? Directory.current.path,
     runInShell: true,
   );
   if (result.exitCode != 0) {
@@ -626,64 +626,184 @@ void _alignIosBundleIds(HookContext context, String applicationId) {
 }
 
 
-/// Rewrites `lib/core/theme/app_palette.dart` with the colours from
-/// `APP_STARTER_COLORS_JSON` (a `{"neutral900": "101B30", ...}` file written by
-/// `scripts/create_app.dart` from the user's `color.xml`). Names the file does
-/// not define keep the defaults, so the theme's required entries always exist.
-void _applyPaletteOverrides(HookContext context) {
-  final overridesPath = Platform.environment['APP_STARTER_COLORS_JSON'];
-  if (overridesPath == null || overridesPath.isEmpty || !File(overridesPath).existsSync()) return;
+/// What [_applyDesignAssets] found, for the monorepo step.
+class _DesignAssets {
+  _DesignAssets({this.fontsYaml = '', this.fontFamily});
 
-  final overrides = (jsonDecode(File(overridesPath).readAsStringSync()) as Map).cast<String, String>();
-  final file = File('lib/core/theme/app_palette.dart');
-  final colors = <String, String>{
-    for (final m in RegExp(r'static const Color (\w+) = Color\(0xFF([0-9A-Fa-f]{6})\);')
-        .allMatches(file.readAsStringSync()))
-      m.group(1)!: m.group(2)!.toUpperCase(),
-  };
-  overrides.forEach((name, hex) => colors[name] = hex.toUpperCase());
+  /// The `fonts:` entries (already indented for the `flutter:` section), or ''.
+  final String fontsYaml;
 
-  int order(String n) {
-    final family = RegExp(r'^[a-z]+').firstMatch(n)!.group(0)!;
-    final rank = ['neutral', 'grey', 'warning'].indexOf(family);
-    final step = int.tryParse(n.substring(family.length)) ?? 0;
-    return (rank < 0 ? 9 : rank) * 100000 + step;
-  }
-
-  final names = colors.keys.toList()..sort((a, b) => order(a).compareTo(order(b)));
-  final buffer = StringBuffer()
-    ..writeln("import 'package:flutter/material.dart';")
-    ..writeln()
-    ..writeln('/// Neutral, grey and warning ramps used for text, borders and status colours.')
-    ..writeln('///')
-    ..writeln('/// Generated from your `color.xml` by `scripts/create_app.dart` (only the')
-    ..writeln('/// `warning*`, `neutral*` and `grey*` entries are read; anything it does not')
-    ..writeln('/// define keeps the default). The theme reads `neutral50`, `neutral200`,')
-    ..writeln('/// `neutral300`, `neutral500`, `neutral600` and `neutral900`.')
-    ..writeln('abstract class AppPalette {')
-    ..writeln('  AppPalette._();');
-  String? last;
-  for (final n in names) {
-    final family = RegExp(r'^[a-z]+').firstMatch(n)!.group(0)!;
-    if (family != last) {
-      buffer
-        ..writeln()
-        ..writeln('  // $family');
-      last = family;
-    }
-    buffer.writeln('  static const Color $n = Color(0xFF${colors[n]});');
-  }
-  buffer.writeln('}');
-  file.writeAsStringSync(buffer.toString());
-  context.logger.detail('Applied ${overrides.length} palette colours from your color file.');
+  /// The family the theme uses by default, or null when no fonts were given.
+  final String? fontFamily;
 }
+
+const _fontExtensions = ['.ttf', '.otf'];
+const _imageExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'];
+
+/// `Poppins-SemiBoldItalic.ttf` -> family `Poppins`, weight 600, italic.
+({String family, int weight, bool italic}) _describeFont(String fileName) {
+  var base = fileName.replaceFirst(RegExp(r'\.(ttf|otf)$', caseSensitive: false), '');
+  base = base.replaceAll(RegExp(r'\[[^\]]*\]'), ''); // variable-font axes: Inter[wght]
+  final dash = base.indexOf(RegExp(r'[-_ ]'));
+  var family = dash > 0 ? base.substring(0, dash) : base;
+  var style = dash > 0 ? base.substring(dash + 1) : '';
+  if (dash < 0) {
+    // "PoppinsBold" -> split off a trailing style word.
+    final m = RegExp(r'^(.+?)(Thin|ExtraLight|UltraLight|Light|Regular|Medium|SemiBold|DemiBold|ExtraBold|UltraBold|Bold|Black|Heavy|Italic)+$')
+        .firstMatch(base);
+    if (m != null) {
+      family = m.group(1)!;
+      style = base.substring(family.length);
+    }
+  }
+  final lower = style.toLowerCase().replaceAll(RegExp(r'[-_ ]'), '');
+  int weight;
+  if (lower.contains('thin')) {
+    weight = 100;
+  } else if (lower.contains('extralight') || lower.contains('ultralight')) {
+    weight = 200;
+  } else if (lower.contains('light')) {
+    weight = 300;
+  } else if (lower.contains('semibold') || lower.contains('demibold')) {
+    weight = 600;
+  } else if (lower.contains('extrabold') || lower.contains('ultrabold')) {
+    weight = 800;
+  } else if (lower.contains('bold')) {
+    weight = 700;
+  } else if (lower.contains('black') || lower.contains('heavy')) {
+    weight = 900;
+  } else if (lower.contains('medium')) {
+    weight = 500;
+  } else {
+    weight = 400;
+  }
+  return (family: family, weight: weight, italic: lower.contains('italic'));
+}
+
+/// Applies the optional files the user gave to `scripts/create_app.dart`:
+///  * `APP_STARTER_COLORS_XML`  -> assets/color/color.xml (replaces the default set)
+///  * `APP_STARTER_FONTS_DIR`   -> assets/fonts/ plus the pubspec `fonts:` entries
+///  * `APP_STARTER_IMAGES_DIR`  -> assets/images/
+/// flutter_gen then turns them into `ColorName`, `FontFamily` and `Assets`.
+/// Fonts are returned rather than written to the pubspec when [deferFonts] is
+/// set (monorepo: they belong to the design-system package instead).
+_DesignAssets _applyDesignAssets(HookContext context, {required bool deferFonts}) {
+  final colorsXml = Platform.environment['APP_STARTER_COLORS_XML'];
+  if (colorsXml != null && colorsXml.isNotEmpty && File(colorsXml).existsSync()) {
+    File(colorsXml).copySync('assets/color/color.xml');
+    context.logger.detail('Using your color.xml for ColorName.');
+  }
+
+  // Images (recursive; the folder and each sub-folder is declared as an asset).
+  Directory('assets/images').createSync(recursive: true);
+  File('assets/images/.gitkeep').writeAsStringSync('');
+  final imagesDir = Platform.environment['APP_STARTER_IMAGES_DIR'];
+  if (imagesDir != null && imagesDir.isNotEmpty && Directory(imagesDir).existsSync()) {
+    final root = Directory(imagesDir).absolute.path;
+    final subDirs = <String>{};
+    var copied = 0;
+    for (final f in Directory(root).listSync(recursive: true).whereType<File>()) {
+      if (!_imageExtensions.any(f.path.toLowerCase().endsWith)) continue;
+      final relative = f.path.substring(root.length + 1);
+      final target = File('assets/images/$relative');
+      target.parent.createSync(recursive: true);
+      f.copySync(target.path);
+      final slash = relative.lastIndexOf('/');
+      if (slash > 0) subDirs.add(relative.substring(0, slash));
+      copied++;
+    }
+    if (subDirs.isNotEmpty) {
+      final pubspec = File('pubspec.yaml');
+      pubspec.writeAsStringSync(pubspec.readAsStringSync().replaceFirst(
+            '    - assets/images/\n',
+            '    - assets/images/\n${[for (final d in subDirs.toList()..sort()) '    - assets/images/$d/\n'].join()}',
+          ));
+    }
+    context.logger.detail('Copied $copied images into assets/images.');
+  }
+
+  // Fonts.
+  final fontsDir = Platform.environment['APP_STARTER_FONTS_DIR'];
+  if (fontsDir == null || fontsDir.isEmpty || !Directory(fontsDir).existsSync()) return _DesignAssets();
+  final families = <String, List<({String file, int weight, bool italic})>>{};
+  Directory('assets/fonts').createSync(recursive: true);
+  final files = Directory(fontsDir).listSync(recursive: true).whereType<File>().where(
+        (f) => _fontExtensions.any(f.path.toLowerCase().endsWith),
+      ).toList()
+    ..sort((a, b) => a.path.compareTo(b.path));
+  for (final f in files) {
+    final name = f.path.split(Platform.pathSeparator).last.replaceAll(' ', '_');
+    f.copySync('assets/fonts/$name');
+    final d = _describeFont(name);
+    families.putIfAbsent(d.family, () => []).add((file: name, weight: d.weight, italic: d.italic));
+  }
+  if (families.isEmpty) return _DesignAssets();
+  final yaml = StringBuffer();
+  for (final e in families.entries) {
+    yaml.writeln('    - family: ${e.key}');
+    yaml.writeln('      fonts:');
+    for (final font in e.value) {
+      yaml.writeln('        - asset: assets/fonts/${font.file}');
+      if (font.weight != 400) yaml.writeln('          weight: ${font.weight}');
+      if (font.italic) yaml.writeln('          style: italic');
+    }
+  }
+  final fontsYaml = yaml.toString();
+  if (!deferFonts) {
+    final pubspec = File('pubspec.yaml');
+    pubspec.writeAsStringSync(pubspec.readAsStringSync().replaceFirst(
+          '  uses-material-design: true\n',
+          '  uses-material-design: true\n  fonts:\n$fontsYaml',
+        ));
+  }
+  context.logger.detail('Added font families: ${families.keys.join(', ')}.');
+  return _DesignAssets(fontsYaml: fontsYaml, fontFamily: families.keys.first);
+}
+
+/// `Poppins` -> `poppins`, `Open Sans` -> `openSans` (flutter_gen's FontFamily naming).
+String _fontConstant(String family) {
+  final words = family.split(RegExp(r'[^A-Za-z0-9]+')).where((w) => w.isNotEmpty).toList();
+  if (words.isEmpty) return family;
+  final first = words.first;
+  return first[0].toLowerCase() + first.substring(1) +
+      words.skip(1).map((w) => w[0].toUpperCase() + w.substring(1)).join();
+}
+
+/// Points the theme at the default font family. [package] is the design-system
+/// package that owns the font files (monorepo), or null for a standalone app.
+void _applyThemeFont(String? family, {String? package}) {
+  final file = File('lib/core/theme/app_theme.dart');
+  var text = file.readAsStringSync();
+  const marker = '      // app_starter:font\n';
+  if (family == null) {
+    file.writeAsStringSync(text.replaceFirst(marker, ''));
+    return;
+  }
+  text = text.replaceFirst(
+    marker,
+    "      fontFamily: FontFamily.${_fontConstant(family)},\n"
+    "${package == null ? '' : "      package: '$package',\n"}",
+  );
+  text = text.replaceFirst(
+    "import '../../gen/colors.gen.dart';\n",
+    "import '../../gen/colors.gen.dart';\nimport '../../gen/fonts.gen.dart';\n",
+  );
+  file.writeAsStringSync(text);
+}
+
+/// Runs flutter_gen (via build_runner) in the current directory.
+Future<void> _runFlutterGen(HookContext context, {String? workingDirectory}) => _run(
+      context,
+      'dart',
+      ['run', 'build_runner', 'build', '--delete-conflicting-outputs'],
+      workingDirectory: workingDirectory,
+    );
 
 /// Files that move into `<base>_design_system` / `<base>_common` in a monorepo,
 /// relative to the app root. Both sets only import each other and Flutter (plus
 /// `shimmer`), so they can be lifted out without touching anything else.
 const _designSystemFiles = [
   'lib/core/theme/app_colors.dart',
-  'lib/core/theme/app_palette.dart',
   'lib/core/theme/app_theme.dart',
 ];
 
@@ -721,7 +841,12 @@ String _normalize(String path) {
 /// `<root>/packages/<base>_common`), the layout used by rentsy. When the
 /// packages already exist (adding a second app) they are left alone and the
 /// app just depends on them.
-Future<void> _applyMonorepo(HookContext context, {required String base, required String projectName}) async {
+Future<void> _applyMonorepo(
+  HookContext context, {
+  required String base,
+  required String projectName,
+  required _DesignAssets design,
+}) async {
   final appDir = Directory.current.absolute;
   final root = appDir.parent.parent;
   if (appDir.parent.path.split(Platform.pathSeparator).last != 'apps') {
@@ -740,6 +865,7 @@ Future<void> _applyMonorepo(HookContext context, {required String base, required
   final commonBarrel = 'package:$commonName/$commonName.dart';
   final targets = <String, String>{
     for (final f in _designSystemFiles) f: dsBarrel,
+    'lib/gen/colors.gen.dart': dsBarrel, // ColorName now lives in the design-system package
     for (final f in _commonFiles) f: commonBarrel,
   };
   final importPattern = RegExp('^(\\s*(?:import|export)\\s+)([\'"])([^\'"]+)\\2', multiLine: true);
@@ -778,7 +904,11 @@ Future<void> _applyMonorepo(HookContext context, {required String base, required
       if (create) {
         final target = File('${pkg.path}/${f.replaceFirst('lib/core/', 'lib/src/')}');
         target.parent.createSync(recursive: true);
-        target.writeAsStringSync(source.readAsStringSync());
+        // The theme imports the generated colours/fonts; in the package they sit one level up.
+        target.writeAsStringSync(source
+            .readAsStringSync()
+            .replaceAll("import '../../gen/fonts.gen.dart';\n", '') // the barrel already exports it
+            .replaceAll("'../../gen/", "'../gen/"));
       }
       source.deleteSync();
     }
@@ -786,6 +916,19 @@ Future<void> _applyMonorepo(HookContext context, {required String base, required
 
   moveInto(dsDir, _designSystemFiles, create: createDs);
   moveInto(commonDir, _commonFiles, create: createCommon);
+
+  // The colours and fonts go with the theme: into the design-system package
+  // when it is new, discarded when an existing package already owns them.
+  for (final name in ['color', 'fonts']) {
+    final dir = Directory('assets/$name');
+    if (!dir.existsSync()) continue;
+    if (createDs) {
+      Directory('${dsDir.path}/assets').createSync(recursive: true);
+      dir.renameSync('${dsDir.path}/assets/$name');
+    } else {
+      dir.deleteSync(recursive: true);
+    }
+  }
 
   String exports(List<String> files) =>
       files.map((f) => "export 'src/${f.replaceFirst('lib/core/', '')}';").join('\n');
@@ -798,7 +941,11 @@ Future<void> _applyMonorepo(HookContext context, {required String base, required
 
   if (createDs) {
     Directory('${dsDir.path}/lib').createSync(recursive: true);
-    File('${dsDir.path}/lib/$dsName.dart').writeAsStringSync('${exports(_designSystemFiles)}\n');
+    File('${dsDir.path}/lib/$dsName.dart').writeAsStringSync(
+      '${exports(_designSystemFiles)}\n'
+      "export 'src/gen/colors.gen.dart';\n"
+      "${design.fontFamily == null ? '' : "export 'src/gen/fonts.gen.dart';\n"}",
+    );
     File('${dsDir.path}/pubspec.yaml').writeAsStringSync('''
 name: $dsName
 description: Shared design tokens for $base apps (colours, palette and ThemeData).
@@ -815,6 +962,17 @@ dependencies:
 
 dev_dependencies:
   flutter_lints: ${constraint('flutter_lints', '^6.0.0')}
+  build_runner: ${constraint('build_runner', '^2.4.13')}
+  flutter_gen_runner: ${constraint('flutter_gen_runner', '^5.8.0')}
+
+flutter:
+  uses-material-design: true
+${design.fontFamily == null ? '' : '  fonts:\n${design.fontsYaml}'}
+flutter_gen:
+  output: lib/src/gen/
+  colors:
+    inputs:
+      - assets/color/color.xml
 ''');
     File('${dsDir.path}/analysis_options.yaml').writeAsStringSync('include: package:flutter_lints/flutter.yaml\n');
   }
@@ -892,7 +1050,9 @@ and `melos run test`.
 
   // 5. Point the app at the packages.
   appPubspec.writeAsStringSync(
-    pubspecText.replaceFirst(
+    pubspecText
+        .replaceFirst('  colors:\n    inputs:\n      - assets/color/color.xml\n', '')
+        .replaceFirst(
       'dependencies:\n  flutter:\n    sdk: flutter\n',
       'dependencies:\n  flutter:\n    sdk: flutter\n'
           '  $dsName:\n    path: ../../packages/$dsName\n'
@@ -967,8 +1127,13 @@ Future<void> run(HookContext context) async {
   _wireIosGoogleSignIn(context);
   _wireIosAppleSignIn(context);
 
-  // 6b. Optional user colours for the palette (scripts/create_app.dart).
-  _applyPaletteOverrides(context);
+  // 6b. Optional colours, fonts and images (scripts/create_app.dart); flutter_gen
+  //     turns them into ColorName / FontFamily / Assets further down. In a
+  //     monorepo the colours and fonts end up in the design-system package.
+  final monorepoBase = Platform.environment['APP_STARTER_MONOREPO_BASE'];
+  final isMonorepo = monorepoBase != null && monorepoBase.isNotEmpty;
+  final design = _applyDesignAssets(context, deferFonts: isMonorepo);
+  _applyThemeFont(design.fontFamily, package: isMonorepo ? '${monorepoBase}_design_system' : null);
 
   // 7. Stamp app icons from the placeholder logo shipped in assets/logo/,
   //    with a ribbon on the staging and DI flavors' copies.
@@ -977,13 +1142,20 @@ Future<void> run(HookContext context) async {
 
   // 7b. Monorepo layout (scripts/create_app.dart sets this; plain `mason make`
   //     leaves it unset and gets a standalone app).
-  final monorepoBase = Platform.environment['APP_STARTER_MONOREPO_BASE'];
-  if (monorepoBase != null && monorepoBase.isNotEmpty) {
-    await _applyMonorepo(context, base: monorepoBase, projectName: projectName);
+  if (isMonorepo) {
+    await _applyMonorepo(context, base: monorepoBase, projectName: projectName, design: design);
+    // A newly created design-system package generates its own ColorName/FontFamily.
+    final dsPath = '${Directory.current.parent.parent.path}/packages/${monorepoBase}_design_system';
+    if (File('$dsPath/pubspec.yaml').existsSync() && !File('$dsPath/lib/src/gen/colors.gen.dart').existsSync()) {
+      await _run(context, 'flutter', ['pub', 'get'], workingDirectory: dsPath);
+      await _runFlutterGen(context, workingDirectory: dsPath);
+    }
   }
 
-  // 8. Final sync pass after native config changes.
+  // 8. Final sync pass after native config changes, then generate
+  //    lib/gen/ (Assets, and ColorName/FontFamily for a standalone app).
   await _run(context, 'flutter', ['pub', 'get']);
+  await _runFlutterGen(context);
 
   context.logger.success('\n"$projectName" is ready.');
   context.logger.info('''

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **flutter_gen replaces `AppPalette`:** colours come from `assets/color/color.xml`
+  (`ColorName.primary500`), fonts from `assets/fonts` (`FontFamily.<name>`) and
+  images from `assets/images` (`Assets.images.<name>`), generated into `lib/gen/`
+  by `build_runner`. `scripts/create_app.dart` now also asks for a fonts folder
+  and an images folder, and no longer asks for the parent folder: projects are
+  created in `~/Desktop/<project_name>`. In a monorepo the colours and fonts
+  move into `<base>_design_system`.
+
 ## 0.7.0
 
 - **Permissions helper** (`Permissions.ensure`): one behaviour everywhere, with

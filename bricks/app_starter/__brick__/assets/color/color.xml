@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="transparent">#00FFFFFF</color>
+
+    <color name="neutral900">#111827</color>
+    <color name="neutral800">#1F2937</color>
+    <color name="neutral700">#374151</color>
+    <color name="neutral600">#4B5563</color>
+    <color name="neutral500">#6B7280</color>
+    <color name="neutral400">#9CA3AF</color>
+    <color name="neutral300">#D1D5DB</color>
+    <color name="neutral200">#E5E7EB</color>
+    <color name="neutral100">#F3F4F6</color>
+    <color name="neutral50">#F9FAFB</color>
+    <color name="neutral25">#FCFCFD</color>
+
+    <color name="primary900">#051439</color>
+    <color name="primary800">#0A2874</color>
+    <color name="primary700">#0D369D</color>
+    <color name="primary600">#1145C8</color>
+    <color name="primary500">#1B49A3</color>
+    <color name="primary400">#4576EF</color>
+    <color name="primary300">#6D93F3</color>
+    <color name="primary200">#96B1F6</color>
+    <color name="primary100">#BECFF9</color>
+    <color name="primary50">#E2EAFD</color>
+    <color name="primary25">#FDFEFF</color>
+
+    <color name="secondary900">#0E1912</color>
+    <color name="secondary800">#193425</color>
+    <color name="secondary700">#1F4831</color>
+    <color name="secondary600">#235D3F</color>
+    <color name="secondary500">#27734C</color>
+    <color name="secondary400">#2B8D5C</color>
+    <color name="secondary300">#2EAA6E</color>
+    <color name="secondary200">#30CA82</color>
+    <color name="secondary100">#90F7BB</color>
+    <color name="secondary50">#DFFDEF</color>
+    <color name="secondary25">#FAFFFC</color>
+
+    <color name="tertiary900">#665208</color>
+    <color name="tertiary800">#9A800F</color>
+    <color name="tertiary700">#C9A614</color>
+    <color name="tertiary600">#E4B918</color>
+    <color name="tertiary500">#FDD019</color>
+    <color name="tertiary400">#F9D954</color>
+    <color name="tertiary300">#FDE478</color>
+    <color name="tertiary200">#FDEDA3</color>
+    <color name="tertiary100">#FEF4C4</color>
+    <color name="tertiary50">#FFF9E5</color>
+    <color name="tertiary25">#FFFDF5</color>
+
+    <color name="success900">#054F31</color>
+    <color name="success800">#05603A</color>
+    <color name="success700">#027A48</color>
+    <color name="success600">#039855</color>
+    <color name="success500">#12B76A</color>
+    <color name="success400">#32D583</color>
+    <color name="success300">#6CE9A6</color>
+    <color name="success200">#A6F4C5</color>
+    <color name="success100">#D1FADF</color>
+    <color name="success50">#ECFDF3</color>
+    <color name="success25">#F6FEF9</color>
+
+    <color name="warning900">#7A2E0E</color>
+    <color name="warning800">#93370D</color>
+    <color name="warning700">#B54708</color>
+    <color name="warning600">#DC6803</color>
+    <color name="warning500">#F79009</color>
+    <color name="warning400">#FDB022</color>
+    <color name="warning300">#FEC84B</color>
+    <color name="warning200">#FEDF89</color>
+    <color name="warning100">#FEF0C7</color>
+    <color name="warning50">#FFFAEB</color>
+    <color name="warning25">#FFFCF5</color>
+
+    <color name="error900">#7A271A</color>
+    <color name="error800">#912018</color>
+    <color name="error700">#B42318</color>
+    <color name="error600">#D92D20</color>
+    <color name="error500">#F04438</color>
+    <color name="error400">#F97066</color>
+    <color name="error300">#FDA29B</color>
+    <color name="error200">#FECDCA</color>
+    <color name="error100">#FEE4E2</color>
+    <color name="error50">#FEF3F2</color>
+    <color name="error25">#FFFBFA</color>
+
+    <color name="info900">#00359E</color>
+    <color name="info800">#0040C1</color>
+    <color name="info700">#004EEB</color>
+    <color name="info600">#155EEF</color>
+    <color name="info500">#2970FF</color>
+    <color name="info400">#528BFF</color>
+    <color name="info300">#84ADFF</color>
+    <color name="info200">#B2CCFF</color>
+    <color name="info100">#D1E0FF</color>
+    <color name="info50">#EFF4FF</color>
+    <color name="info25">#F5F8FF</color>
+</resources>

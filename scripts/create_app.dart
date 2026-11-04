@@ -46,10 +46,10 @@ Future<void> main() async {
         ? null
         : 'Must be lower_snake_case, starting with a letter (e.g. acme_rentals).',
   );
-  final parentPath = _expandHome(_ask(
-    'Parent folder to create the project in',
-    required: true,
-  ));
+  // Projects are always created on the Desktop, in a folder named after the
+  // project (<Desktop>/<project_name>); no need to ask.
+  final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
+  final parentPath = '$home/Desktop';
   final parentDir = Directory(parentPath).absolute;
 
   // Layout. Polyrepo (default): <parent>/<project>. Monorepo: a Melos workspace
@@ -138,28 +138,42 @@ Future<void> main() async {
 
   stdout.writeln(_heading('\n--- Firebase (required: push, Crashlytics, Analytics, Google Sign-In) ---'));
   stdout.writeln('Create the Android apps for "$applicationId", "$applicationId.staging" AND "$applicationId.di",');
-  stdout.writeln('enable the Google sign-in provider, then download both files.');
+  stdout.writeln('enable the Google sign-in provider. Android uses ONE google-services.json for all three flavors;');
+  stdout.writeln('iOS needs a separate GoogleService-Info.plist per flavor (three iOS apps in Firebase).');
   final googleServicesPath = _askRequiredFile(
     'google-services.json (Android Firebase config)',
     extensions: ['.json'],
     validate: (path) => _validateGoogleServices(path, applicationId),
   );
-  final googleServiceInfoPlistPath = _askRequiredFile(
-    'GoogleService-Info.plist (iOS Firebase config)',
-    extensions: ['.plist'],
-    validate: (path) => _validatePlist(path, applicationId),
-  );
+  final plistPaths = <String, String>{};
+  for (final flavor in _flavors) {
+    final bundleId = _bundleIdFor(flavor, applicationId);
+    plistPaths[flavor] = _askRequiredFile(
+      'GoogleService-Info.plist for the $flavor flavor (iOS bundle id $bundleId)',
+      extensions: ['.plist'],
+      validate: (path) => _validatePlist(path, bundleId, flavor),
+    );
+  }
 
-  stdout.writeln(_heading('\n--- Colours ---'));
-  stdout.writeln('Text, borders and status colours come from a neutral/grey/warning palette.');
+  stdout.writeln(_heading('\n--- Colours, fonts and images (generated with flutter_gen) ---'));
+  stdout.writeln('Colours become ColorName.<name> (e.g. ColorName.primary500), fonts FontFamily.<name>,');
+  stdout.writeln('images Assets.images.<name>. Press Enter to skip any of these.');
   final colorsXmlPath = _askOptionalFile(
-    'color.xml to take warning*, neutral* and grey* colours from (Enter to use the built-in basics)',
+    'color.xml with your colours (e.g. neutral500, primary500)',
     extensions: ['.xml'],
   );
-  final paletteOverrides = colorsXmlPath == null ? null : _readPaletteOverrides(colorsXmlPath);
-  if (paletteOverrides != null && monorepo && _detectMonorepoBase(Directory('${parentDir.path}/$monorepoFolder')) != null) {
-    stdout.writeln(_warn('  Note: the existing design-system package already owns the palette, so this file is ignored.'));
+  final colorEntries = colorsXmlPath == null ? null : _readColorEntries(colorsXmlPath);
+  if (colorEntries != null && monorepo && _detectMonorepoBase(Directory('${parentDir.path}/$monorepoFolder')) != null) {
+    stdout.writeln(_warn('  Note: the existing design-system package already owns the colours and fonts, so these are ignored.'));
   }
+  final fontsDir = _askOptionalDirectory(
+    'Fonts folder (.ttf / .otf files, e.g. Poppins-Regular.ttf, Poppins-Bold.ttf)',
+    containing: const ['.ttf', '.otf'],
+  );
+  final imagesDir = _askOptionalDirectory(
+    'Images folder (copied into assets/images)',
+    containing: const ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'],
+  );
 
   stdout.writeln(_heading('\n--- Optional ---'));
   final iconPath = _askOptionalFile('App icon (PNG, ideally 1024x1024)', extensions: ['.png']);
@@ -175,10 +189,14 @@ Future<void> main() async {
   stdout.writeln('API (staging):       $apiStaging');
   stdout.writeln('API (production):    $apiProduction');
   stdout.writeln('iOS App Store URL:   $iosAppStoreUrl');
-  stdout.writeln('Colours:            ${paletteOverrides == null ? 'built-in basics' : '${paletteOverrides.length} from $colorsXmlPath'}');
+  stdout.writeln('Colours:            ${colorEntries == null ? 'built-in colour set' : '${colorEntries.length} from $colorsXmlPath'}');
+  stdout.writeln('Fonts:               ${fontsDir ?? '(skipped)'}');
+  stdout.writeln('Images:              ${imagesDir ?? '(skipped)'}');
   stdout.writeln('App icon:            ${iconPath ?? '(skipped -- placeholder icon kept)'}');
   stdout.writeln('google-services.json: $googleServicesPath');
-  stdout.writeln('GoogleService-Info.plist: $googleServiceInfoPlistPath');
+  for (final flavor in _flavors) {
+    stdout.writeln('GoogleService-Info ($flavor): ${plistPaths[flavor]}');
+  }
   stdout.write(_question('\nGenerate with these values?') + _hint(' [Y/n] '));
   final confirmed = _readLine().toLowerCase();
   if (confirmed == 'n' || confirmed == 'no') {
@@ -202,10 +220,18 @@ Future<void> main() async {
     'ios_app_store_url': iosAppStoreUrl,
   }));
 
-  // Hand the palette to the brick's post_gen hook through a temp file.
-  File? colorsJson;
-  if (paletteOverrides != null) {
-    colorsJson = File('${varsFile.parent.path}/palette.json')..writeAsStringSync(jsonEncode(paletteOverrides));
+  // Hand the colours to the brick's post_gen hook through a cleaned-up copy
+  // (flutter_gen fails on duplicate names, so repeats are dropped here).
+  File? colorsXml;
+  if (colorEntries != null) {
+    colorsXml = File('${varsFile.parent.path}/color.xml')
+      ..writeAsStringSync([
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<resources>',
+        for (final e in colorEntries.entries) '    <color name="${e.key}">#${e.value}</color>',
+        '</resources>',
+        '',
+      ].join('\n'));
   }
 
   stdout.writeln('\nResolving the brick...');
@@ -221,7 +247,9 @@ Future<void> main() async {
     environment: {
       if (iconPath != null) 'APP_STARTER_ICON': File(iconPath).absolute.path,
       if (monorepoBase != null) 'APP_STARTER_MONOREPO_BASE': monorepoBase,
-      if (paletteOverrides != null) 'APP_STARTER_COLORS_JSON': colorsJson!.path,
+      if (colorsXml != null) 'APP_STARTER_COLORS_XML': colorsXml.path,
+      if (fontsDir != null) 'APP_STARTER_FONTS_DIR': Directory(fontsDir).absolute.path,
+      if (imagesDir != null) 'APP_STARTER_IMAGES_DIR': Directory(imagesDir).absolute.path,
     },
   );
 
@@ -229,12 +257,15 @@ Future<void> main() async {
   Directory('${outputDir.path}/android/app').createSync(recursive: true);
   File(googleServicesPath).copySync('${outputDir.path}/android/app/google-services.json');
 
-  stdout.writeln('Copying GoogleService-Info.plist into ios/Runner/...');
-  Directory('${outputDir.path}/ios/Runner').createSync(recursive: true);
-  File(googleServiceInfoPlistPath).copySync('${outputDir.path}/ios/Runner/GoogleService-Info.plist');
+  stdout.writeln('Copying the per-flavor GoogleService-Info plists into ios/Runner/Firebase/...');
+  Directory('${outputDir.path}/ios/Runner/Firebase').createSync(recursive: true);
+  for (final flavor in _flavors) {
+    File(plistPaths[flavor]!).copySync('${outputDir.path}/ios/Runner/Firebase/GoogleService-Info-$flavor.plist');
+  }
+  _writeFirebasePlistScript(outputDir.path);
 
-  stdout.writeln('Filling the Google Sign-In keys in ios/Runner/Info.plist from the plist...');
-  _fillGoogleSignInKeys(googleServiceInfoPlistPath, '${outputDir.path}/ios/Runner/Info.plist');
+  stdout.writeln('Filling the Google Sign-In keys in ios/Runner/Info.plist from the production plist...');
+  _fillGoogleSignInKeys(plistPaths['production']!, '${outputDir.path}/ios/Runner/Info.plist');
 
   stdout.writeln('\n=== Done ===');
   stdout.writeln('"$appName" is ready at ${outputDir.path}');
@@ -242,8 +273,10 @@ Future<void> main() async {
   stdout.writeln('  cd ${outputDir.path}');
   stdout.writeln('  flutter run --flavor staging -t lib/main.dart --dart-define=FLAVOR=staging');
   stdout.writeln('\nStill manual (cannot be scripted):');
-  stdout.writeln('  - Xcode: drag GoogleService-Info.plist into the Runner target, enable Push');
-  stdout.writeln('    Notifications + Background Modes, upload the APNs key to Firebase.');
+  stdout.writeln('  - Xcode: add a Run Script build phase to the Runner target (after "Compile Sources"):');
+  stdout.writeln('      "\$SRCROOT/Runner/Firebase/copy_google_service_info.sh"');
+  stdout.writeln('    It copies the right GoogleService-Info-<flavor>.plist into the app bundle.');
+  stdout.writeln('    Also enable Push Notifications + Background Modes, upload the APNs key to Firebase.');
   stdout.writeln('  - Sign In with Apple: enable the capability for your App ID.');
   stdout.writeln('  - Android Google Sign-In: add your debug/release SHA-1 and SHA-256 to Firebase.');
   stdout.writeln('  See docs/POST_GEN_MANUAL_STEPS.md.');
@@ -358,45 +391,56 @@ String _askChoice(String prompt, {required List<String> choices, required String
   }
 }
 
-/// Reads `<color name="x">#RRGGBB</color>` entries and keeps only the
-/// `warning<N>`, `neutral<N>` and `grey<N>` ones. Prints what it found and
-/// anything suspicious; the first definition of a repeated name wins.
-Map<String, String> _readPaletteOverrides(String path) {
+/// Reads the `<color name="x">#RRGGBB</color>` entries of a colour file into
+/// name -> hex. The first definition of a repeated name wins (flutter_gen would
+/// otherwise generate the same field twice and the project would not compile).
+Map<String, String> _readColorEntries(String path) {
   final xml = File(path).readAsStringSync();
-  final all = RegExp(r'<color name="([^"]+)">#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})</color>').allMatches(xml);
-  final family = RegExp(r'^(warning|neutral|grey)\d+$');
+  final all = RegExp(r'<color\s+name="([^"]+)"[^>]*>\s*#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})\s*</color>').allMatches(xml);
   final taken = <String, String>{};
   final repeated = <String>{};
-  final otherHexes = <String, String>{}; // hex -> a non-family colour that uses it
   for (final m in all) {
     final name = m.group(1)!;
-    final raw = m.group(2)!;
-    final hex = (raw.length == 8 ? raw.substring(2) : raw).toUpperCase();
-    if (family.hasMatch(name)) {
-      if (taken.containsKey(name)) {
-        repeated.add(name);
-      } else {
-        taken[name] = hex;
-      }
+    if (taken.containsKey(name)) {
+      repeated.add(name);
     } else {
-      otherHexes.putIfAbsent(hex, () => name);
+      taken[name] = m.group(2)!.toUpperCase();
     }
   }
-  stdout.writeln('  Using ${taken.length} colours: ${taken.keys.join(', ')}');
+  stdout.writeln('  Found ${taken.length} colours.');
   if (repeated.isNotEmpty) {
     stdout.writeln(_warn('  Warning: defined more than once (the first value is used): ${repeated.join(', ')}'));
   }
-  final suspicious = [
-    for (final e in taken.entries)
-      if (e.key.startsWith('warning') && otherHexes[e.value] != null)
-        '${e.key} (#${e.value}, same as ${otherHexes[e.value]})',
-  ];
-  if (suspicious.isNotEmpty) {
-    stdout.writeln(_warn('  Warning: these look like copy-paste mistakes (a warning colour that equals '
-        'another family\'s): ${suspicious.join(', ')}'));
-  }
-  if (taken.isEmpty) stdout.writeln('  No warning/neutral/grey colours found; the built-in basics are used.');
+  if (taken.isEmpty) stdout.writeln(_warn('  No <color name="..">#RRGGBB</color> entries found; the built-in colours are used.'));
   return taken;
+}
+
+/// Asks for a folder that holds at least one file with one of [containing]'s
+/// extensions (searched recursively). Enter skips.
+String? _askOptionalDirectory(String label, {required List<String> containing}) {
+  while (true) {
+    stdout.write('${_question(label)} ${_hint('(path, Enter to skip)')}: ');
+    final input = _readLine();
+    if (input.isEmpty) return null;
+
+    final path = _expandHome(input);
+    final dir = Directory(path);
+    if (!dir.existsSync()) {
+      stdout.writeln(_bad('  No folder found at "$path". Try again, or press Enter to skip.'));
+      continue;
+    }
+    final count = dir
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => containing.any(f.path.toLowerCase().endsWith))
+        .length;
+    if (count == 0) {
+      stdout.writeln(_bad('  No ${containing.join(' / ')} files in that folder. Try again, or press Enter to skip.'));
+      continue;
+    }
+    stdout.writeln('  Found $count file${count == 1 ? '' : 's'}.');
+    return path;
+  }
 }
 
 String _normalizeUrl(String url) => url.endsWith('/') ? url.substring(0, url.length - 1) : url;
@@ -471,8 +515,13 @@ Map<String, String> _readPlistStrings(String path) {
   };
 }
 
-/// The plist must carry the Google keys and belong to this app's bundle id.
-String? _validatePlist(String path, String applicationId) {
+const _flavors = ['production', 'staging', 'di'];
+
+String _bundleIdFor(String flavor, String applicationId) =>
+    flavor == 'production' ? applicationId : '$applicationId.$flavor';
+
+/// The plist must carry the Google keys and belong to this flavor's bundle id.
+String? _validatePlist(String path, String expectedBundleId, String flavor) {
   final values = _readPlistStrings(path);
   for (final key in ['CLIENT_ID', 'REVERSED_CLIENT_ID', 'BUNDLE_ID']) {
     if (!values.containsKey(key)) {
@@ -480,16 +529,32 @@ String? _validatePlist(String path, String applicationId) {
           'and re-download the file.';
     }
   }
-  final production = applicationId;
   final bundleId = values['BUNDLE_ID']!;
-  if (![production, '$production.staging', '$production.di'].contains(bundleId)) {
-    return 'BUNDLE_ID is "$bundleId" but this project uses $production (production) / '
-        '$production.staging (staging) / $production.di (di). Add a matching iOS app in Firebase '
-        'and re-download.';
+  if (bundleId != expectedBundleId) {
+    return 'BUNDLE_ID is "$bundleId" but the $flavor flavor needs "$expectedBundleId". '
+        'Download the plist of the iOS app with that bundle id from Firebase.';
   }
-  stdout.writeln(_warn('  Note: this plist is for $bundleId only. The other flavors need their own '
-      'GoogleService-Info.plist (one iOS app per flavor in Firebase) before they can use Firebase.'));
   return null;
+}
+
+/// Build-phase helper: copies the plist matching the flavor being built into
+/// the app bundle as GoogleService-Info.plist (what Firebase looks for).
+void _writeFirebasePlistScript(String outputPath) {
+  final script = File('$outputPath/ios/Runner/Firebase/copy_google_service_info.sh');
+  script.writeAsStringSync(r'''#!/bin/sh
+# Copies the GoogleService-Info plist of the flavor being built into the app bundle.
+# Flavor comes from the build configuration name (e.g. Debug-staging, Release-di).
+case "$CONFIGURATION" in
+  *-staging) FLAVOR=staging ;;
+  *-di)      FLAVOR=di ;;
+  *)         FLAVOR=production ;;
+esac
+SRC="$SRCROOT/Runner/Firebase/GoogleService-Info-$FLAVOR.plist"
+DEST="$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app/GoogleService-Info.plist"
+if [ ! -f "$SRC" ]; then echo "error: missing $SRC"; exit 1; fi
+cp "$SRC" "$DEST"
+''');
+  Process.runSync('chmod', ['+x', script.path]);
 }
 
 /// Replaces the placeholders post_gen left in Info.plist with the real

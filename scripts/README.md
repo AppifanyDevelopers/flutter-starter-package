@@ -15,7 +15,7 @@ works regardless of your current working directory.
 
 | Prompt | Maps to | Required? |
 |---|---|---|
-| Parent folder | Where to create the project (polyrepo: `<parent>/<project_name>`). A `<project_name>` folder is created inside it, so files are never spread into the folder you pick; the script refuses if that folder already exists and is not empty | Yes |
+| *(not asked)* | The project is always created on the Desktop, in a folder named after the project: `~/Desktop/<project_name>` (monorepo: `~/Desktop/<folder>/apps/<project_name>`). The script refuses if that folder already exists and is not empty | - |
 | Package/project name | `project_name` brick var | Yes |
 | App display name | `app_name` brick var | Yes |
 | Repository layout | `polyrepo` (default) or `monorepo`. Monorepo asks for a **folder name** and a **base package name**, and creates `<parent>/<folder>/` with `apps/<project>`, `packages/<base>_design_system` (colours, palette, theme), `packages/<base>_common` (shared widgets, validators) and a Melos `melos.yaml`/`pubspec.yaml`. If the folder already is a monorepo, only a new app is added and the packages are reused untouched | No (default polyrepo) |
@@ -24,10 +24,12 @@ works regardless of your current working directory.
 | Description | `description` brick var | No |
 | Staging/production API URLs (include the `/api` prefix; trailing `/` is stripped) | `api_base_url_staging`/`_production` | No |
 | iOS App Store URL | `ios_app_store_url` | No (placeholder allowed) |
-| `color.xml` | Only `warning<N>`, `neutral<N>` and `grey<N>` entries are read and written to `AppPalette`; names it lacks keep the built-in defaults. The first value wins for repeated names, and suspicious copy-paste values are flagged. Enter uses the built-in basics | No |
+| `color.xml` | Every `<color name="primary500">#RRGGBB</color>` entry becomes `ColorName.primary500` via flutter_gen (copied to `assets/color/color.xml`). The first value wins for repeated names. Enter keeps the built-in colour set | No |
+| Fonts folder | `.ttf` / `.otf` files, searched recursively and copied to `assets/fonts/`. Family and weight come from the file name (`Poppins-SemiBold.ttf` -> family `Poppins`, weight 600, `Italic` -> italic); the `fonts:` entries are written to `pubspec.yaml`, `FontFamily.poppins` is generated and the theme uses the first family | No |
+| Images folder | Images (png, jpg, webp, gif, svg), copied recursively to `assets/images/`; each becomes `Assets.images.<name>` | No |
 | App icon (PNG) | Copied to `assets/logo/icon.png`, then `flutter_launcher_icons` is rerun | No |
 | `google-services.json` | Copied to `android/app/`. Validated: must list `<application_id>`, `<application_id>.staging` and `<application_id>.di`, and have Google sign-in enabled | **Yes** |
-| `GoogleService-Info.plist` | Copied to `ios/Runner/`. Validated: must contain `CLIENT_ID`, `REVERSED_CLIENT_ID` and a `BUNDLE_ID` matching this project. The Google Sign-In keys in `Info.plist` are filled from it | **Yes** |
+| `GoogleService-Info.plist` x3 | One per flavor (production, staging, di), asked separately. Each must contain `CLIENT_ID`, `REVERSED_CLIENT_ID` and the `BUNDLE_ID` of its flavor. Saved as `ios/Runner/Firebase/GoogleService-Info-<flavor>.plist` with a `copy_google_service_info.sh` helper; Info.plist's Google Sign-In keys come from the production plist | **Yes** |
 
 The two Firebase files are required: push, Crashlytics, Analytics and Google
 Sign-In are always part of the app, so the script keeps asking until the files
@@ -48,10 +50,10 @@ the exact paths (`assets/logo/icon.png`, `android/app/google-services.json`,
 
 ## What it does NOT do for you
 
-- **Add `GoogleService-Info.plist` to the Xcode project.** Copying the file
-  into `ios/Runner/` is not enough -- Xcode only bundles resources it knows
-  about. Open `ios/Runner.xcworkspace` and drag the file into the Runner
-  target (one-time, per project). `google-services.json` doesn't have this
+- **Wire the plists into the Xcode build.** Open `ios/Runner.xcworkspace`, add a
+  Run Script build phase to the Runner target running
+  `"$SRCROOT/Runner/Firebase/copy_google_service_info.sh"` (one-time). It copies the
+  plist of the flavor being built into the bundle. `google-services.json` doesn't have this
   problem -- the Gradle plugin picks it up from disk automatically.
 - **Validate the icon looks good at every size**, just that it's a `.png`.
   Re-run `dart run flutter_launcher_icons` yourself after swapping it again.

@@ -79,12 +79,28 @@ dev_dependencies:
   flutter_flavorizr: ^2.4.1
   flutter_launcher_icons: ^0.14.4
 
+  # Generates ColorName (assets/color/color.xml), FontFamily and Assets into
+  # lib/gen/ -- run `dart run build_runner build` after changing any of them.
+  build_runner: ^2.4.13
+  flutter_gen_runner: ^5.8.0
+
 flutter:
   uses-material-design: true
   assets:
     - .env.staging
     - .env.production
     - .env.di
+    - assets/images/
+    - assets/logo/
+
+flutter_gen:
+  output: lib/gen/
+  colors:
+    inputs:
+      - assets/color/color.xml
+  assets:
+    exclude:
+      - .env*
 
 flutter_launcher_icons:
   android: true

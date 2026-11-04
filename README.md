@@ -38,7 +38,7 @@ color, and get a working app with auth + settings + dashboard already done.
    does.
 4. **Run the generated app**:
    ```bash
-   cd <parent folder>/<project name>
+   cd ~/Desktop/<project name>
    flutter run --flavor staging -t lib/main.dart --dart-define=FLAVOR=staging
    ```
    Demo login: `demo@example.com` / `password123`. Any OTP screen (signup or
